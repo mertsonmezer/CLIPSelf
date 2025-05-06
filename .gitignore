@@ -154,3 +154,4 @@ checkpoints/
 F-ViT/data
 F-ViT/work_dirs
 logs
+ruff.toml
