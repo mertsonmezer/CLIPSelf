@@ -9,7 +9,7 @@ arch_dict = {
             "heads": "num_attention_heads",
             "layers": "num_hidden_layers",
             "layer_attr": "layer",
-            "token_embeddings_attr": "embeddings"
+            "token_embeddings_attr": "embeddings",
         },
         "pooler": "mean_pooler",
     },
@@ -22,7 +22,7 @@ arch_dict = {
             "heads": "num_attention_heads",
             "layers": "num_hidden_layers",
             "layer_attr": "layer",
-            "token_embeddings_attr": "embeddings"
+            "token_embeddings_attr": "embeddings",
         },
         "pooler": "mean_pooler",
     },
@@ -38,7 +38,20 @@ arch_dict = {
             "heads": "num_heads",
             "layers": "num_layers",
             "layer_attr": "block",
-            "token_embeddings_attr": "embed_tokens"
+            "token_embeddings_attr": "embed_tokens",
+        },
+        "pooler": "mean_pooler",
+    },
+    # Add this block for BERT support:
+    "bert": {
+        "config_names": {
+            "context_length": "max_position_embeddings",
+            "vocab_size": "vocab_size",
+            "width": "hidden_size",
+            "heads": "num_attention_heads",
+            "layers": "num_hidden_layers",
+            "layer_attr": "layer",
+            "token_embeddings_attr": "embeddings",
         },
         "pooler": "mean_pooler",
     },
