@@ -1,0 +1,23 @@
+torchrun --nproc_per_node=4 -m training.main \
+  --batch-size=2 \
+  --lr=1e-5 \
+  --wd=0.1 \
+  --epochs=6 \
+  --workers=4 \
+  --model hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224 \
+  --train-data data/coco/coco_proposals.json \
+  --val-data data/coco/annotations/panoptic_val2017.json \
+  --train-image-root data/coco/train2017 \
+  --val-image-root data/coco/val2017 \
+  --name biomedclip_hf_coco_run \
+  --det-image-size 224 \
+  --alpha 0.7 \
+  --warmup 1000 \
+  --zeroshot-frequency 1 \
+  --dataset-type proposals_distill \
+  --embed-path metadata/coco_panoptic_clip_hand_craft_EVACLIP_ViTB16.npy \
+  --test-type coco_panoptic \
+  --log-every-n-steps 50 \
+  --extract-type="v2" \
+  --lock-image --save-frequency 6 --lock-image-unlocked-groups 12 \
+  --downsample-factor 16 \
