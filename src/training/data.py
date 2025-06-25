@@ -170,3 +170,46 @@ def get_data(args, preprocess_fns, epoch: int = 0):
     data["val"] = build_dataloader(dataset, False, args)
 
   return data
+
+
+def demo_grid_distill(annotation_file: str, image_root: str, num_samples: int = 2) -> None:
+  """Demonstrate :class:`GridDistillDataset` loading.
+
+  Parameters
+  ----------
+  annotation_file: str
+      Path to the COCO annotation file.
+  image_root: str
+      Root directory containing the images.
+  num_samples: int, optional
+      Number of samples to iterate through (default: 2).
+  """
+
+  from torchvision.transforms import Compose, Resize, ToTensor
+
+  image_tf = Compose([Resize(1024), ToTensor()])
+  crop_tf = Compose([Resize(224), ToTensor()])
+
+  dataset = GridDistillDataset(annotation_file, image_root, [image_tf, crop_tf])
+  loader = DataLoader(dataset, batch_size=1)
+
+  for i, batch in enumerate(loader):
+    img, boxes, crops = batch
+    print("Image shape:", list(img.shape))
+    print("Boxes shape:", list(boxes.shape))
+    print("Crops shape:", list(crops.shape))
+    print()
+    if i >= num_samples - 1:
+      break
+
+
+if __name__ == "__main__":  # pragma: no cover - manual demo
+  import argparse
+
+  parser = argparse.ArgumentParser(description="GridDistillDataset demo")
+  parser.add_argument("annotation_file", help="Path to COCO annotation JSON")
+  parser.add_argument("image_root", help="Directory containing images")
+  parser.add_argument("--num-samples", type=int, default=2, dest="num_samples")
+  args = parser.parse_args()
+
+  demo_grid_distill(args.annotation_file, args.image_root, args.num_samples)
