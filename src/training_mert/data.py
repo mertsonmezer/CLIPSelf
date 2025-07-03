@@ -10,6 +10,7 @@ from pycocotools.coco import COCO
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
+from torchvision.transforms.transforms import Compose
 
 from open_clip.transform import get_scale
 
@@ -309,132 +310,79 @@ def get_data(
   return dataloaders
 
 
-# def demo() -> None:
-#   from torchvision.transforms import Compose, Resize, ToTensor
-
-#   parser = argparse.ArgumentParser(description="GridDistillDataset demo")
-#   parser.add_argument("annotation_file", help="Path to COCO annotation JSON")
-#   parser.add_argument("image_root", help="Directory containing images")
-#   parser.add_argument("--num-samples", type=int, default=2, dest="num_samples")
-#   args: argparse.Namespace = parser.parse_args()
-
-#   image_tf: Compose = Compose([Resize(1024), ToTensor()])
-#   crop_tf: Compose = Compose([Resize(224), ToTensor()])
-
-#   dataset = GridDistillDataset(args.annotation_file, args.image_root, [image_tf, crop_tf])
-#   data_loader = DataLoader(dataset, batch_size=1)
-
-#   for i, batch in enumerate(data_loader):
-#     img, boxes, crops = batch
-#     print("Image shape:", list(img.shape))
-#     print("Boxes shape:", list(boxes.shape))
-#     print("Crops shape:", list(crops.shape))
-#     print()
-#     if i >= args.num_samples - 1:
-#       break
-
-
-from torchvision.transforms import Resize, ToTensor, Compose
-from torchvision.transforms.functional import resize, to_tensor
-
-
 def demo() -> None:
-  """Comprehensive demo of GridDistillDataset functionality.
-
-  This demo showcases:
-  1. Dataset initialization and configuration
-  2. Data loading and batch processing
-  3. Grid template generation visualization
-  4. Transform pipeline effects
-  5. Coordinate normalization process
-  6. Crop extraction and visualization
-  """
   import matplotlib.pyplot as plt
   import matplotlib.patches as patches
   import numpy as np
-  from torchvision.transforms import Compose, Resize, ToTensor
+  import torchvision.transforms as T
   from torchvision.transforms.functional import to_pil_image
 
-  print("=" * 80)
-  print("GridDistillDataset Comprehensive Demo")
-  print("=" * 80)
-
-  # Parse command line arguments
   parser = argparse.ArgumentParser(description="GridDistillDataset comprehensive demo")
-  parser.add_argument("annotation_file", help="Path to COCO annotation JSON")
-  parser.add_argument("image_root", help="Directory containing images")
-  parser.add_argument("--num-samples", type=int, default=3, dest="num_samples", help="Number of samples to process")
+  parser.add_argument("--annotation_file_path", help="Path to COCO annotation JSON")
+  parser.add_argument("--image_root_path", help="Directory containing images")
+  parser.add_argument("--num_samples", type=int, default=3, dest="num_samples", help="Number of samples to process")
   parser.add_argument(
-    "--max-split", type=int, default=4, dest="max_split", help="Maximum grid divisions per dimension"
+    "--max_split", type=int, default=4, dest="max_split", help="Maximum grid divisions per dimension"
   )
-  parser.add_argument("--max-boxes", type=int, default=16, dest="max_boxes", help="Maximum number of boxes per image")
-  parser.add_argument("--crop-size", type=int, default=224, dest="crop_size", help="Size of extracted crops")
+  parser.add_argument("--max_boxes", type=int, default=16, dest="max_boxes", help="Maximum number of boxes per image")
+  parser.add_argument("--crop_size", type=int, default=224, dest="crop_size", help="Size of extracted crops")
   parser.add_argument(
-    "--save-visualizations", action="store_true", dest="save_viz", help="Save visualization plots to disk"
+    "--save_visualizations", action="store_true", dest="save_viz", help="Save visualization plots to disk"
   )
   args: argparse.Namespace = parser.parse_args()
 
-  print("\n📋 Configuration:")
-  print(f"   Annotation file: {args.annotation_file}")
-  print(f"   Image root: {args.image_root}")
-  print(f"   Max grid split: {args.max_split}x{args.max_split}")
-  print(f"   Max boxes per image: {args.max_boxes}")
-  print(f"   Crop size: {args.crop_size}x{args.crop_size}")
-  print(f"   Samples to process: {args.num_samples}")
+    print("=" * 80)
+  print("GridDistillDataset Comprehensive Demo")
+  print("=" * 80)
 
-  # Define transforms - these are crucial for understanding the pipeline
-  # Custom transform that guarantees exact dimensions
-  def crop_transform_func(img):
-    # Force exact dimensions - this will distort aspect ratio
-    img_resized = resize(img, (args.crop_size, args.crop_size))
-    return to_tensor(img_resized)
-
-  print("\n🔄 Transform Pipeline:")
-  image_transform = Compose([Resize(1024), ToTensor()])
-  crop_transform = crop_transform_func  # Custom function
-  transforms = [image_transform, crop_transform]
-
-  print("   Full Image Transform: Resize(1024) → ToTensor()")
-  print(f"   Crop Transform: Custom resize to ({args.crop_size}, {args.crop_size}) → ToTensor()")
-  print("   → Guarantees exact crop dimensions")
+  image_transform: T.Compose = T.Compose(
+    [
+      T.Resize(1024, interpolation=T.InterpolationMode.BICUBIC),
+      T.CenterCrop(1024),
+      T.ToTensor(),
+    ]
+  )
+  crop_transform: T.Compose = T.Compose(
+    [
+      T.Resize(args.crop_size, interpolation=T.InterpolationMode.BICUBIC),
+      T.CenterCrop(args.crop_size),
+      T.ToTensor(),
+    ]
+  )
+  transforms: List[T.Compose] = [image_transform, crop_transform]
 
   # Initialize dataset
-  print("\n🏗️  Initializing Dataset...")
-  try:
-    dataset = GridDistillDataset(
-      annotations_file_path=args.annotation_file,
-      image_root_path=args.image_root,
-      transforms=transforms,
-      max_split=args.max_split,
-      crop_size=args.crop_size,
-      max_boxes=args.max_boxes,
-    )
-    print("   ✅ Dataset created successfully!")
-    print(f"   📊 Total images available: {len(dataset)}")
-    print(f"   🎲 Grid configurations: {len(dataset.box_templates)} templates")
-
-  except Exception as e:
-    print(f"   ❌ Failed to create dataset: {e}")
-    return
+  print("\nInitializing Dataset...")
+  dataset = GridDistillDataset(
+    annotations_file_path=args.annotation_file_path,
+    image_root_path=args.image_root_path,
+    transforms=transforms,
+    max_split=args.max_split,
+    crop_size=args.crop_size,
+    max_boxes=args.max_boxes,
+  )
+  print("   Dataset created successfully!")
+  print(f"   Total images available: {len(dataset)}")
+  print(f"   Grid configurations: {len(dataset.box_templates)} templates")
 
   # Show grid template information
-  print("\n📐 Grid Template Analysis:")
+  print("\nGrid Template Analysis:")
   print(f"   Generated {len(dataset.box_templates)} different grid configurations:")
   for (m, n), template in dataset.box_templates.items():
     num_boxes = template.shape[0]
-    print(f"   • {m}×{n} grid → {num_boxes} boxes")
+    print(f"   - {m}x{n} grid -> {num_boxes} boxes")
 
   # Show some example grid coordinates
-  example_grid = dataset.box_templates[(2, 3)]  # 2x3 grid
-  print("\n   Example 2×3 grid coordinates (normalized [0,1]):")
+  example_grid: torch.Tensor = dataset.box_templates[(2, 3)]  # 2x3 grid
+  print("\n   Example 2x3 grid coordinates (normalized [0,1]):")
   for i, box in enumerate(example_grid):
     x0, y0, x1, y1 = box.tolist()
     print(f"   Box {i + 1}: [{x0:.2f}, {y0:.2f}, {x1:.2f}, {y1:.2f}]")
 
   # Create dataloader for batch processing
-  data_loader = DataLoader(dataset, batch_size=1, shuffle=True)
+  data_loader: DataLoader[Any] = DataLoader(dataset, batch_size=1, shuffle=True)
 
-  print("\n🔍 Processing Sample Data:")
+  print("\nProcessing Sample Data:")
   print("   Batch size: 1 (for detailed analysis)")
 
   # Process samples with detailed analysis
@@ -443,7 +391,7 @@ def demo() -> None:
       break
 
     print("\n" + "=" * 60)
-    print("📸 SAMPLE {sample_idx + 1}")
+    print(f"SAMPLE {sample_idx + 1}")
     print("=" * 60)
 
     # Unpack batch data
@@ -452,62 +400,52 @@ def demo() -> None:
     boxes = boxes_batch[0]  # Remove batch dimension
     crops = crops_batch[0]  # Remove batch dimension
 
-    print("\n📏 Tensor Shapes:")
-    print("   Full Image: {list(img.shape)} (CxHxW)")
-    print("   Boxes: {list(boxes.shape)} (max_boxesx5)")
-    print("   Crops: {list(crops.shape)} (max_boxesxCxHxW)")
+    print("\nTensor Shapes:")
+    print(f"   Full Image: {list(img.shape)} (C x H x W)")
+    print(f"   Boxes: {list(boxes.shape)} (max_boxes x 5)")
+    print(f"   Crops: {list(crops.shape)} (max_boxes x C x H x W)")
 
     # Analyze box data
     valid_boxes = boxes[boxes[:, 4] == 1.0]  # Only boxes with validity flag = 1
     num_valid = len(valid_boxes)
-    print("\n📦 Box Analysis:")
+    print("\nBox Analysis:")
     print(f"   Valid boxes: {num_valid}/{args.max_boxes}")
-
-    if num_valid > 0:
-      print("   Coordinate ranges:")
-      print(f"   • X: [{valid_boxes[:, 0].min():.3f}, {valid_boxes[:, 0].max():.3f}]")
-      print(f"   • Y: [{valid_boxes[:, 1].min():.3f}, {valid_boxes[:, 1].max():.3f}]")
-      print(f"   • Width: {(valid_boxes[:, 2] - valid_boxes[:, 0]).mean():.3f} (avg)")
-      print(f"   • Height: {(valid_boxes[:, 3] - valid_boxes[:, 1]).mean():.3f} (avg)")
-
-    # Show first few valid boxes in detail
-    print("\n   First 5 valid boxes (normalized coordinates):")
-    for i in range(min(5, num_valid)):
-      box = valid_boxes[i]
-      x0, y0, x1, y1, valid = box.tolist()
-      w, h = x1 - x0, y1 - y0
-      print(f"   Box {i + 1}: [{x0:.3f}, {y0:.3f}, {x1:.3f}, {y1:.3f}] size: {w:.3f}×{h:.3f}")
 
     # Analyze crops
     valid_crops = crops[:num_valid]  # Only crops corresponding to valid boxes
-    print("\n🖼️  Crop Analysis:")
+    print("\nCrop Analysis:")
     print(f"   Valid crops: {len(valid_crops)}")
-    if len(valid_crops) > 0:
-      crop_means = valid_crops.mean(dim=(2, 3))  # Mean across spatial dimensions
-      print("   Crop pixel value ranges:")
-      print(f"   • Red channel: [{valid_crops[:, 0].min():.3f}, {valid_crops[:, 0].max():.3f}]")
-      print(f"   • Green channel: [{valid_crops[:, 1].min():.3f}, {valid_crops[:, 1].max():.3f}]")
-      print(f"   • Blue channel: [{valid_crops[:, 2].min():.3f}, {valid_crops[:, 2].max():.3f}]")
 
     # Create visualization if matplotlib is available
     if args.save_viz or sample_idx == 0:  # Always show first sample
       try:
-        print("\n🎨 Creating visualization...")
+        print("\nCreating visualization...")
 
         # Convert tensor back to PIL for visualization
         img_pil = to_pil_image(img)
 
-        # Create figure with subplots
-        fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+        # Create figure with subplots - simplified layout
+        num_crops_to_show = min(8, num_valid)  # Show up to 8 crops
+        cols = 4
+        rows = 2 + (num_crops_to_show + cols - 1) // cols  # Dynamic rows based on crops
+
+        fig, axes = plt.subplots(rows, cols, figsize=(16, 4 * rows))
         fig.suptitle(f"GridDistillDataset Sample {sample_idx + 1}", fontsize=16, fontweight="bold")
 
-        # Plot 1: Original transformed image with boxes
-        ax = axes[0, 0]
+        # Flatten axes for easier indexing
+        if rows == 1:
+          axes = axes.reshape(1, -1)
+        axes_flat = axes.flatten()
+
+        # Plot 1: Original transformed image with bounding boxes
+        ax = axes_flat[0]
         ax.imshow(img_pil)
-        ax.set_title(f"Full Image with Grid Boxes\n({img.shape[1]}×{img.shape[2]})")
+        ax.set_title(f"Full Image with Grid Boxes\n{img.shape[1]}×{img.shape[2]} pixels, {num_valid} valid boxes")
 
         # Draw bounding boxes on the image
         img_h, img_w = img.shape[1], img.shape[2]
+        colors = plt.cm.Set3(np.linspace(0, 1, max(num_valid, 1)))  # Use Set3 colormap for better visibility
+
         for i in range(num_valid):
           box = valid_boxes[i]
           x0, y0, x1, y1 = box[:4].tolist()
@@ -515,94 +453,84 @@ def demo() -> None:
           x0, x1 = x0 * img_w, x1 * img_w
           y0, y1 = y0 * img_h, y1 * img_h
 
-          rect = patches.Rectangle(
-            (x0, y0), x1 - x0, y1 - y0, linewidth=2, edgecolor=plt.cm.tab10(i % 10), facecolor="none"
-          )
+          rect = patches.Rectangle((x0, y0), x1 - x0, y1 - y0, linewidth=3, edgecolor=colors[i], facecolor="none")
           ax.add_patch(rect)
-          ax.text(x0, y0 - 5, f"{i + 1}", color=plt.cm.tab10(i % 10), fontweight="bold", fontsize=8)
+
+          # Add box number label with background for better visibility
+          ax.text(
+            x0 + 5,
+            y0 + 15,
+            f"{i + 1}",
+            color="white",
+            fontweight="bold",
+            fontsize=12,
+            bbox=dict(boxstyle="round,pad=0.3", facecolor=colors[i], alpha=0.8),
+          )
         ax.axis("off")
 
-        # Plot 2: Box coordinate distribution
-        ax = axes[0, 1]
-        if num_valid > 0:
-          box_centers_x = (valid_boxes[:, 0] + valid_boxes[:, 2]) / 2
-          box_centers_y = (valid_boxes[:, 1] + valid_boxes[:, 3]) / 2
-          ax.scatter(box_centers_x, box_centers_y, c=range(num_valid), cmap="tab10", s=100, alpha=0.7)
-          ax.set_xlim(0, 1)
-          ax.set_ylim(0, 1)
-          ax.invert_yaxis()  # Match image coordinate system
-          ax.grid(True, alpha=0.3)
-          ax.set_title(f"Box Centers Distribution\n({num_valid} boxes)")
-          ax.set_xlabel("Normalized X")
-          ax.set_ylabel("Normalized Y")
-        else:
-          ax.text(0.5, 0.5, "No valid boxes", ha="center", va="center")
-          ax.set_title("Box Centers Distribution")
+        # Hide unused subplots in the first row
+        for i in range(1, cols):
+          axes_flat[i].axis("off")
+          axes_flat[i].set_title("")
 
-        # Plot 3: Box size distribution
-        ax = axes[0, 2]
-        if num_valid > 0:
-          box_widths = valid_boxes[:, 2] - valid_boxes[:, 0]
-          box_heights = valid_boxes[:, 3] - valid_boxes[:, 1]
-          ax.scatter(box_widths, box_heights, c=range(num_valid), cmap="tab10", s=100, alpha=0.7)
-          ax.set_title(f"Box Size Distribution\n({num_valid} boxes)")
-          ax.set_xlabel("Normalized Width")
-          ax.set_ylabel("Normalized Height")
-          ax.grid(True, alpha=0.3)
-        else:
-          ax.text(0.5, 0.5, "No valid boxes", ha="center", va="center")
-          ax.set_title("Box Size Distribution")
+        # Show extracted crops starting from second row
+        crop_start_idx = cols  # Start from second row
+        for crop_idx in range(num_crops_to_show):
+          ax_idx = crop_start_idx + crop_idx
+          ax = axes_flat[ax_idx]
 
-        # Plot 4-6: Show first 3 crops
-        for crop_idx in range(3):
-          ax = axes[1, crop_idx]
-          if crop_idx < num_valid:
-            crop_img = to_pil_image(valid_crops[crop_idx])
-            ax.imshow(crop_img)
-            box = valid_boxes[crop_idx]
-            w, h = box[2] - box[0], box[3] - box[1]
-            ax.set_title(f"Crop {crop_idx + 1}\nSize: {w:.3f}×{h:.3f}")
-          else:
-            ax.text(0.5, 0.5, "No crop\navailable", ha="center", va="center")
-            ax.set_title(f"Crop {crop_idx + 1}")
+          crop_img = to_pil_image(valid_crops[crop_idx])
+          ax.imshow(crop_img)
+
+          # Get box dimensions for title
+          box = valid_boxes[crop_idx]
+          w, h = box[2] - box[0], box[3] - box[1]
+
+          ax.set_title(
+            f"Crop {crop_idx + 1}\n{w:.3f}x{h:.3f} (normalized)\n{args.crop_size}×{args.crop_size} pixels", fontsize=10
+          )
           ax.axis("off")
+
+          # Add border with same color as bounding box
+          for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_color(colors[crop_idx])
+            spine.set_linewidth(3)
+
+        # Hide remaining unused subplots
+        for i in range(crop_start_idx + num_crops_to_show, len(axes_flat)):
+          axes_flat[i].axis("off")
 
         plt.tight_layout()
 
         if args.save_viz:
           filename = f"griddistill_sample_{sample_idx + 1}.png"
           plt.savefig(filename, dpi=150, bbox_inches="tight")
-          print(f"   💾 Saved visualization: {filename}")
+          print(f"   Saved visualization: {filename}")
         else:
           plt.show()
 
         plt.close()
 
       except Exception as e:
-        print(f"   ⚠️  Visualization failed: {e}")
+        print(f"   Visualization failed: {e}")
 
-    print(f"\n✅ Sample {sample_idx + 1} processed successfully!")
+    print(f"\nSample {sample_idx + 1} processed successfully!")
 
   # Final summary
   print("\n" + "=" * 80)
-  print("📊 DEMO SUMMARY")
+  print("DEMO SUMMARY")
   print("=" * 80)
-  print("✅ Successfully processed {min(args.num_samples, len(data_loader))} samples")
-  print("🎯 Dataset is working correctly!")
-  print("📈 Key insights:")
-  print("   • Images are resized and converted to tensors")
-  print("   • Grid boxes are generated dynamically per sample")
-  print("   • Coordinates are properly normalized to [0,1]")
-  print("   • Crops are extracted and resized consistently")
-  print("   • Output tensors have fixed shapes for batching")
+  print(f"Successfully processed {args.num_samples} samples")
+  print("Dataset is working correctly!")
+  print("Key insights:")
+  print("   - Images are resized and converted to tensors")
+  print("   - Grid boxes are generated dynamically per sample")
+  print("   - Coordinates are properly normalized to [0,1]")
+  print("   - Crops are extracted and resized consistently")
+  print("   - Output tensors have fixed shapes for batching")
 
-  print("\n💡 Usage tips:")
-  print("   • Use transforms=[image_tf, crop_tf] where both include ToTensor()")
-  print("   • Adjust max_split to control grid granularity")
-  print("   • Set max_boxes to balance quality vs. computational cost")
-  print("   • Validity flags help identify which boxes contain real data")
-
-  print("\n🎉 Demo completed successfully!")
+  print("\nDemo completed successfully!")
 
 
 if __name__ == "__main__":
