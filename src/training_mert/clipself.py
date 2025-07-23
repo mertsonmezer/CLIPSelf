@@ -121,23 +121,20 @@ class CLIPSelf:
     Returns:
       Tuple of (valid_roi_boxes_list, concatenated_valid_crops)
     """
-    valid_roi_boxes_list = []
-    valid_crops_list = []
+    valid_roi_boxes_list: List[Tensor] = []
+    valid_crops_list: List[Tensor] = []
 
-    # Process each image's boxes and crops
     for boxes_per_image, crops_per_image in zip(normalized_boxes, region_crops):
-      # Filter based on confidence score (last column)
-      high_confidence_mask = boxes_per_image[:, -1] > confidence_threshold
+      high_confidence_mask: Tensor = boxes_per_image[:, -1] > confidence_threshold
 
       # Keep only high-confidence boxes (first 4 columns are coordinates)
-      valid_boxes = boxes_per_image[high_confidence_mask, :4]
-      valid_crops = crops_per_image[high_confidence_mask]
+      valid_boxes: Tensor = boxes_per_image[high_confidence_mask, :4]
+      valid_crops: Tensor = crops_per_image[high_confidence_mask]
 
       valid_roi_boxes_list.append(valid_boxes)
       valid_crops_list.append(valid_crops)
 
-    # Concatenate all valid crops across the batch
-    concatenated_valid_crops = torch.cat(valid_crops_list)
+    concatenated_valid_crops: Tensor = torch.cat(valid_crops_list)
 
     return valid_roi_boxes_list, concatenated_valid_crops
 
@@ -155,6 +152,7 @@ def demo():
   import argparse
 
   import torchvision.transforms as T
+  from torch.utils.data import DataLoader
 
   from training_mert.data import GridDistillDataset
 
@@ -171,7 +169,7 @@ def demo():
   parser.add_argument("--extract_type", type=str, default="roi_align", help="Feature extraction type")
   parser.add_argument("--multiscale", action="store_true", help="Enable multiscale augmentation")
 
-  args = parser.parse_args()
+  args: argparse.Namespace = parser.parse_args()
 
   print("CLIPSelf Demo")
   print("=" * 50)
@@ -181,10 +179,10 @@ def demo():
   print("-" * 50)
 
   # Setup device and data types
-  cast_dtype = torch.float32
+  cast_dtype: torch.dtype = torch.float32
 
   # Setup transforms for full images and crops
-  image_transform = T.Compose(
+  image_transform: T.Compose = T.Compose(
     [
       T.Resize(1024, interpolation=T.InterpolationMode.BICUBIC),
       T.CenterCrop(1024),
@@ -193,7 +191,7 @@ def demo():
     ]
   )
 
-  crop_transform = T.Compose(
+  crop_transform: T.Compose = T.Compose(
     [
       T.Resize(args.crop_size, interpolation=T.InterpolationMode.BICUBIC),
       T.CenterCrop(args.crop_size),
@@ -217,32 +215,30 @@ def demo():
   print(f"Grid templates available: {len(dataset.box_templates)}")
 
   # Create a simple DataLoader for batching
-  from torch.utils.data import DataLoader
-
-  dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
+  dataloader: DataLoader[Tensor] = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 
   # Mock student and teacher models for demo purposes
   class MockCLIPModel:
     """Mock CLIP model for demonstration purposes."""
 
-    def __init__(self, feature_dim=512):
-      self.feature_dim = feature_dim
+    def __init__(self, feature_dim: int = 512):
+      self.feature_dim: int = feature_dim
       self.logit_scale = torch.nn.Parameter(torch.ones([]) * 4.6052)  # ln(100)
 
     def encode_image(self, images: Tensor, normalize: bool = True) -> Tensor:
       """Mock image encoding - returns random features."""
       batch_size = images.shape[0]
-      features = torch.randn(batch_size, self.feature_dim, device=images.device, dtype=images.dtype)
+      features: Tensor = torch.randn(batch_size, self.feature_dim, device=images.device, dtype=images.dtype)
       if normalize:
         features = F.normalize(features, dim=-1)
       return features
 
     def encode_pseudo_boxes(
-      self, images: Tensor, roi_boxes_list, normalize: bool = True, extract_type: str = "roi_align"
+      self, images: Tensor, roi_boxes_list: List[Tensor], normalize: bool = True, extract_type: str = "roi_align"
     ) -> Tensor:
       """Mock ROI feature extraction - returns random features."""
-      total_boxes = sum(len(boxes) for boxes in roi_boxes_list)
-      features = torch.randn(total_boxes, self.feature_dim, device=images.device, dtype=images.dtype)
+      total_boxes: int = sum(len(boxes) for boxes in roi_boxes_list)
+      features: Tensor = torch.randn(total_boxes, self.feature_dim, device=images.device, dtype=images.dtype)
       if normalize:
         features = F.normalize(features, dim=-1)
       return features
@@ -273,9 +269,9 @@ def demo():
     print(f"  Crops shape: {list(crops.shape)}")
 
     # Count valid boxes per image
-    valid_counts = []
+    valid_counts: List[int] = []
     for i in range(boxes.shape[0]):
-      valid_count = (boxes[i, :, 4] == 1.0).sum().item()
+      valid_count: int = (boxes[i, :, 4] == 1.0).sum().item()
       valid_counts.append(valid_count)
     print(f"  Valid boxes per image: {valid_counts}")
 
@@ -285,7 +281,7 @@ def demo():
         batch=(images, boxes, crops),
         student_model=student_model,
         teacher_model=teacher_model,
-        device="cpu",
+        device=torch.device("cpu"),
         cast_dtype=cast_dtype,
         distributed=False,
         args=args,
