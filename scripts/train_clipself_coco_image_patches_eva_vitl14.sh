@@ -1,4 +1,4 @@
-torchrun --nproc_per_node 8 -m training.main --batch-size=2 --lr=1e-5 --wd=0.1 --epochs=6 --workers=4 \
+torchrun --nproc_per_node 4 -m training.main --batch-size=2 --lr=1e-5 --wd=0.1 --epochs=6 --workers=4 \
 --model EVA02-CLIP-L-14-336 --pretrained eva --warmup 1000  --zeroshot-frequency 1 --dataset-type grid_distill  \
 --test-type coco_panoptic --train-data data/coco/annotations/instances_train2017.json \
 --val-data data/coco/annotations/panoptic_val2017.json \
