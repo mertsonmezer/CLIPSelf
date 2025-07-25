@@ -16,9 +16,9 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
-from .coco_datasets import COCOPanopticDataset
-from .grid_distill import GridDistillDataset
-from .proposal_distill import ProposalDistillDataset
+from training_organized.data_classes.coco_datasets import COCOPanopticDataset
+from training_organized.data_classes.grid_distill import GridDistillDataset
+from training_organized.data_classes.proposal_distill import ProposalDistillDataset
 
 
 class SharedEpoch:

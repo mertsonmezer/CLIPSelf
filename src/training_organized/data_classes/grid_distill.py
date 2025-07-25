@@ -19,8 +19,8 @@ from torchvision.transforms import Compose, RandomHorizontalFlip
 
 from open_clip.transform import get_scale
 
-from ..utils.transforms import CustomRandomCrop, CustomRandomResize
-from .base_dataset import BaseDataset
+from training_organized.utils.transforms import CustomRandomCrop, CustomRandomResize
+from training_organized.data_classes.base_dataset import BaseDataset
 
 
 class GridDistillDataset(BaseDataset):

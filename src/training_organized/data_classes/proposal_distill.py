@@ -12,7 +12,7 @@ from typing import List, Tuple
 from pycocotools.coco import COCO
 from open_clip.transform import get_scale
 
-from .base_dataset import BaseDataset
+from training_organized.data_classes.base_dataset import BaseDataset
 
 
 class ProposalDistillDataset(BaseDataset):
