@@ -3,9 +3,9 @@ import torch
 import torch.nn.functional as F
 from training.dist_utils import all_gather
 from tqdm import tqdm
-from .distributed import is_master
+from training.distributed import is_master
 from open_clip import get_cast_dtype
-from .precision import get_autocast
+from training.precision import get_autocast
 
 
 def run(model, dataloader, args):
