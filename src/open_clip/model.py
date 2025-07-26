@@ -341,8 +341,8 @@ class CustomTextCLIP(nn.Module):
         self.visual.set_grad_checkpointing(enable)
         self.text.set_grad_checkpointing(enable)
 
-    def encode_pseudo_boxes(self, image, normed_boxes, normalize: bool = False):
-        features = self.visual.extract_roi_features(image, normed_boxes)
+    def encode_pseudo_boxes(self, image, normed_boxes, normalize: bool = False, extract_type="v1"):
+        features = self.visual.extract_roi_features(image, normed_boxes, extract_type=extract_type)
         return F.normalize(features, dim=-1) if normalize else features
 
     def encode_image(self, image, normalize: bool = False):
