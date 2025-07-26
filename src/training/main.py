@@ -23,7 +23,7 @@ from torch import optim
 from torch.cuda.amp import GradScaler
 
 from open_clip import create_model, create_model_and_transforms, get_tokenizer
-from training.data.data import get_data
+from training.data.data import DataInfo, get_data
 from training.methods.clipself import CLIPSelf
 from training.methods.region_clip import RegionCLIP
 from training.params import parse_args
@@ -326,7 +326,7 @@ def main(command_line_args: List[str]) -> None:
       logging.info(f"=> loaded checkpoint '{args.resume}' (epoch {start_epoch})")
 
   # Initialize datasets and data loaders
-  data: Dict[str, Any] = get_data(
+  data: Dict[str, DataInfo] = get_data(
     args, (preprocess_train, preprocess_val), epoch=start_epoch, tokenizer=get_tokenizer(args.model)
   )
   assert len(data), "At least one train or eval dataset must be specified."

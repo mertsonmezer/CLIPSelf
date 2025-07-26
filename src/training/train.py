@@ -304,7 +304,7 @@ def evaluate(model: Any, data: Dict[str, Any], epoch: int, args: Any) -> Dict[st
   model.eval()
 
   # Perform zero-shot evaluation
-  zero_shot_metrics = zero_shot_eval(model, data, epoch, args)
+  zero_shot_metrics: Dict[str, float] = zero_shot_eval(model, data, epoch, args)
 
   # Only master process handles metric collection and logging
   if not is_master(args):
