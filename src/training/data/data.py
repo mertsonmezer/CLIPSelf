@@ -10,6 +10,8 @@ This module contains dataset classes for different training modes:
 All datasets support both local file system and Ceph distributed storage.
 """
 
+from __future__ import annotations
+
 import argparse
 import io
 import logging
@@ -17,9 +19,10 @@ import os
 import random
 from dataclasses import dataclass
 from multiprocessing import Value
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from panopticapi import utils
 from PIL import Image
@@ -58,7 +61,7 @@ class ProposalDistillDataset(Dataset[Tuple[torch.Tensor, ...]]):
     args (Any): Training arguments containing configuration parameters
 
   Returns:
-      Tuple of (transformed_image, boxes_template, image_crops) where:
+    Tuple of (transformed_image, boxes_template, image_crops) where:
       - transformed_image: Preprocessed full image tensor
       - boxes_template: Tensor of shape (max_anns, 5) with [x1, y1, x2, y2, valid]
       - image_crops: Tensor of cropped image regions
@@ -231,20 +234,20 @@ class GridDistillDataset(Dataset[Tuple[torch.Tensor, ...]]):
   relationships and patch-level features.
 
   Args:
-    input_filename: Path to COCO-style annotation file
-    transforms: List of image transforms [image_transform, crop_transform]
-    image_root: Root directory containing images
-    max_split: Maximum grid size (default: 16)
-    crop_size: Size of cropped regions (default: 224)
-    pre_transforms: Whether to apply data augmentation (default: False)
-    ceph_root: Ceph storage root path (default: "")
-    args: Training arguments containing configuration parameters
+    input_filename (str): Path to COCO-style annotation file
+    transforms (List[Any]): List of image transforms [image_transform, crop_transform]
+    image_root (str): Root directory containing images
+    max_split (int): Maximum grid size (default: 16)
+    crop_size (Union[int, Tuple[int, int]]): Size of cropped regions (default: 224)
+    pre_transforms (bool): Whether to apply data augmentation (default: False)
+    ceph_root (str): Ceph storage root path (default: "")
+    args (argparse.Namespace): Training arguments containing configuration parameters
 
   Returns:
     Tuple of (transformed_image, boxes_template, image_crops_template) where:
-    - transformed_image: Preprocessed full image tensor
+    "- transformed_image: Preprocessed full image tensor
     - boxes_template: Tensor of shape (max_anns, 5) with [x1, y1, x2, y2, valid]
-    - image_crops_template: Tensor of cropped grid regions
+    - image_crops_template: Tensor of cropped grid regions"
   """
 
   def __init__(
@@ -287,13 +290,13 @@ class GridDistillDataset(Dataset[Tuple[torch.Tensor, ...]]):
     self._init_boxes()
 
     # Ceph distributed storage configuration
-    self.ceph_root = ceph_root
+    self.ceph_root: str = ceph_root
     self.use_ceph: bool = ceph_root != ""
     self.file_client = None
 
     # Optional pre-processing augmentations
     if pre_transforms:
-      self.pre_transforms = Compose(
+      self.pre_transforms: Compose = Compose(
         [
           CustomRandomResize(scale=(0.5, 2.0)),
           CustomRandomCrop(size=self.transforms[0].transforms[0].max_size),
@@ -448,7 +451,7 @@ class GridDistillDataset(Dataset[Tuple[torch.Tensor, ...]]):
       next_id = random.choice(range(self.__len__()))
       return self.__getitem__(next_id)
 
-    new_image = self.transforms[0](old_image)
+    new_image: torch.Tensor = self.transforms[0](old_image)
 
     # Calculate scaling factor and get grid crops
     scale = get_scale(old_image, new_image)
@@ -473,7 +476,7 @@ class GridDistillDataset(Dataset[Tuple[torch.Tensor, ...]]):
     return new_image, boxes_template, image_crops_template
 
 
-class COCOPanopticDataset(Dataset):
+class COCOPanopticDataset(Dataset[Tuple[torch.Tensor, ...]]):
   """
   Dataset for COCO panoptic segmentation training.
 
@@ -481,19 +484,19 @@ class COCOPanopticDataset(Dataset):
   bounding boxes and segmentation masks. Supports both 'thing' and 'stuff' categories.
 
   Args:
-      input_filename: Path to COCO panoptic annotation file
-      transforms: List of image transforms [image_transform, crop_transform]
-      image_root: Root directory containing images
-      embed_path: Path to precomputed text embeddings
-      segm_root: Root directory containing segmentation masks
-      crop_size: Size of cropped regions (default: 224)
-      tokenizer: Text tokenizer (optional, for compatibility)
-      downsample_factor: Factor for mask downsampling (default: 16)
-      min_size: Minimum object size (default: 8)
-      max_size: Maximum object size (default: 1024)
+    input_filename (str): Path to COCO panoptic annotation file
+    transforms (List[Any]): List of image transforms [image_transform, crop_transform]
+    image_root (str): Root directory containing images
+    embed_path (str): Path to precomputed text embeddings
+    segm_root (str): Root directory containing segmentation masks
+    crop_size (Union[int, Tuple[int, int]]): Size of cropped regions (default: 224)
+    tokenizer (Any): Text tokenizer (optional, for compatibility)
+    downsample_factor (int): Factor for mask downsampling (default: 16)
+    min_size (int): Minimum object size (default: 8)
+    max_size (int): Maximum object size (default: 1024)
 
   Returns:
-      Tuple of (image, boxes_template, image_crops, gt_masks, masked_image_crops) where:
+    Tuple of (image, boxes_template, image_crops, gt_masks, masked_image_crops) where:
       - image: Preprocessed full image tensor
       - boxes_template: Tensor of shape (max_anns, 8) with [x1, y1, x2, y2, class, valid, size, is_thing]
       - image_crops: Tensor of cropped image regions
@@ -504,7 +507,7 @@ class COCOPanopticDataset(Dataset):
   def __init__(
     self,
     input_filename: str,
-    transforms: Any,
+    transforms: List[Any],
     image_root: str,
     embed_path: str,
     segm_root: str,
@@ -518,19 +521,19 @@ class COCOPanopticDataset(Dataset):
     self.coco = COCOPanoptic(input_filename)
     logging.debug("Done loading data.")
 
-    self.transforms = transforms
-    self.tokenize = tokenizer
-    self.image_root = image_root
-    self.embeddings = np.load(embed_path)
-    self.image_ids = list(self.coco.imgs.keys())
+    self.transforms: List[Any] = transforms
+    self.tokenize: Any = tokenizer
+    self.image_root: str = image_root
+    self.embeddings: npt.NDArray[np.float32] = np.load(embed_path)
+    self.image_ids: List[str] = list(self.coco.imgs.keys())
 
     # Calculate maximum annotations per image
-    num_annos = [len(anns) for anns in self.coco.imgToAnns.values()]
-    self.max_anns = min(max(num_annos), 100)
+    num_annos: List[int] = [len(anns) for anns in self.coco.imgToAnns.values()]
+    self.max_anns: int = min(max(num_annos), 100)
 
     # Normalize crop_size to list format
     if not isinstance(crop_size, (tuple, list)):
-      self.crop_size = [crop_size, crop_size]
+      self.crop_size: List[int] = [crop_size, crop_size]
     else:
       self.crop_size = list(crop_size)
 
@@ -539,31 +542,31 @@ class COCOPanopticDataset(Dataset):
     self.max_size = 1024
 
     # Segmentation configuration
-    self.segm_root = segm_root
-    self.downsample_factor = downsample_factor
+    self.segm_root: str = segm_root
+    self.downsample_factor: int = downsample_factor
 
     # Create transform for segmentation masks (downsampled)
-    self.segm_transform = ResizeLongest(
+    self.segm_transform: ResizeLongest = ResizeLongest(
       max_size=self.transforms[0].transforms[0].max_size // downsample_factor, fill=0
     )
 
     # Create category ID to label mapping
-    cat_ids = sorted([cat["id"] for cat in self.coco.cats.values()])
-    self.cat_id2label = {cat_id: label for label, cat_id in enumerate(cat_ids)}
+    cat_ids: List[int] = sorted([cat["id"] for cat in self.coco.cats.values()])
+    self.cat_id2label: Dict[int, int] = {cat_id: label for label, cat_id in enumerate(cat_ids)}
 
   def __len__(self) -> int:
     return len(self.image_ids)
 
   @staticmethod
-  def _load_segm(segm_path: str) -> np.ndarray:
+  def _load_segm(segm_path: str) -> npt.NDArray[Any]:
     """
     Load panoptic segmentation map from file.
 
     Args:
-        segm_path: Path to segmentation PNG file
+      segm_path (str): Path to segmentation PNG file
 
     Returns:
-        Segmentation map as numpy array with unique IDs per segment
+      Segmentation map as numpy array with unique IDs per segment
     """
     segmentation = np.array(Image.open(segm_path), dtype=np.uint8)
     # Convert RGB segmentation to unique ID map
@@ -575,24 +578,24 @@ class COCOPanopticDataset(Dataset):
     Get a training sample by index.
 
     Args:
-        idx: Sample index
+      idx (int): Sample index
 
     Returns:
-        Tuple of (image, boxes_template, image_crops, gt_masks, masked_image_crops)
+      Tuple of (image, boxes_template, image_crops, gt_masks, masked_image_crops)
     """
-    image_id = self.image_ids[idx]
-    image_info = self.coco.imgs[image_id]
-    image_name = image_info["file_name"]
-    segm_file = image_info["segm_file"]
+    image_id: str = self.image_ids[idx]
+    image_info: Dict[str, Any] = self.coco.imgs[image_id]
+    image_name: str = image_info["file_name"]
+    segm_file: str = image_info["segm_file"]
 
     # Load image and segmentation
-    image_path = os.path.join(self.image_root, image_name)
-    segm_path = os.path.join(self.segm_root, segm_file)
-    segm_map = self._load_segm(segm_path)
+    image_path: str = os.path.join(self.image_root, image_name)
+    segm_path: str = os.path.join(self.segm_root, segm_file)
+    segm_map: npt.NDArray[Any] = self._load_segm(segm_path)
 
-    old_image = Image.open(image_path)
+    old_image: ImageFile = Image.open(image_path)
     img_w, img_h = old_image.width, old_image.height
-    new_image = self.transforms[0](old_image)
+    new_image: torch.Tensor = self.transforms[0](old_image)
 
     # Calculate scaling factor
     scale = get_scale(old_image, new_image)
@@ -600,17 +603,17 @@ class COCOPanopticDataset(Dataset):
 
     # Initialize output tensors
     # Box format: [x1, y1, x2, y2, class_label, valid, area, is_thing]
-    boxes_template = torch.zeros(self.max_anns, 4 + 2 + 1 + 1)
-    image_crops = torch.zeros(self.max_anns, 3, *self.crop_size)
-    gt_masks = torch.zeros(self.max_anns, self.segm_transform.max_size, self.segm_transform.max_size)
-    masked_image_crops = torch.zeros(self.max_anns, 3, *self.crop_size)
+    boxes_template: torch.Tensor = torch.zeros(self.max_anns, 4 + 2 + 1 + 1)
+    image_crops: torch.Tensor = torch.zeros(self.max_anns, 3, *self.crop_size)
+    gt_masks: torch.Tensor = torch.zeros(self.max_anns, self.segm_transform.max_size, self.segm_transform.max_size)
+    masked_image_crops: torch.Tensor = torch.zeros(self.max_anns, 3, *self.crop_size)
 
     for i, ann in enumerate(anns):
       if i == self.max_anns:
         break
 
-      cat_id = ann["category_id"]
-      is_thing = self.coco.cats[cat_id]["isthing"]
+      cat_id: int = ann["category_id"]
+      is_thing: int = self.coco.cats[cat_id]["isthing"]
 
       # Extract bounding box based on category type
       if is_thing > 0:
@@ -636,19 +639,19 @@ class COCOPanopticDataset(Dataset):
       image_crops[i] = self.transforms[1](old_image.crop((x0, y0, x1, y1)))
 
       # Generate masked image crop (background set to gray value 114)
-      np_old_image = np.asarray(old_image.copy())
+      np_old_image: npt.NDArray[np.float32] = np.asarray(old_image.copy())
       np_old_image = np_old_image.copy()  # Make writable copy
       np_old_image[segm_map != ann["id"]] = 114  # Mask background
-      masked_old_image = Image.fromarray(np_old_image)
+      masked_old_image: Image.Image = Image.fromarray(np_old_image)
       masked_image_crops[i] = self.transforms[1](masked_old_image.crop((x0, y0, x1, y1)))
 
       # Generate ground truth mask
-      gt_mask = torch.from_numpy(segm_map == ann["id"]).float()
+      gt_mask: torch.Tensor = torch.from_numpy(segm_map == ann["id"]).float()
       gt_mask = self.segm_transform(gt_mask[None]) > 0.0
 
       # Prepare box information
-      cls_label = self.cat_id2label[cat_id]
-      box_info = torch.tensor([x, y, x + w, y + h, cls_label, 1.0, w * h, is_thing])
+      cls_label: int = self.cat_id2label[cat_id]
+      box_info: torch.Tensor = torch.tensor([x, y, x + w, y + h, cls_label, 1.0, w * h, is_thing])
       boxes_template[i] = box_info
       gt_masks[i] = gt_mask[0]
 
@@ -661,7 +664,7 @@ class COCOPanopticDataset(Dataset):
     return new_image, boxes_template, image_crops, gt_masks, masked_image_crops
 
 
-class COCORegionCLIPDataset(Dataset):
+class COCORegionCLIPDataset(Dataset[Tuple[torch.Tensor, ...]]):
   """
   Dataset for COCO region-based CLIP training.
 
@@ -670,48 +673,48 @@ class COCORegionCLIPDataset(Dataset):
   object/region level.
 
   Args:
-      input_filename: Path to COCO-style annotation file
-      transforms: List of image transforms [image_transform, crop_transform]
-      image_root: Root directory containing images
-      args: Training arguments containing configuration parameters
+    input_filename (str): Path to COCO-style annotation file
+    transforms (List[Any]): List of image transforms [image_transform, crop_transform]
+    image_root (str): Root directory containing images
+    args (argparse.Namespace): Training arguments containing configuration parameters
 
   Returns:
-      Tuple of (transformed_image, boxes_template) where:
+    Tuple of (transformed_image, boxes_template) where:
       - transformed_image: Preprocessed full image tensor
       - boxes_template: Tensor of shape (max_anns, 6) with [x1, y1, x2, y2, class, valid]
   """
 
-  def __init__(self, input_filename: str, transforms: Any, image_root: str, args: Any):
+  def __init__(self, input_filename: str, transforms: List[Any], image_root: str, args: argparse.Namespace):
     logging.debug(f"Loading COCO caption style data from {input_filename}.")
     self.coco = COCO(input_filename)
     logging.debug("Done loading data.")
 
-    self.transforms = transforms
-    self.image_root = image_root
+    self.transforms: List[Any] = transforms
+    self.image_root: str = image_root
 
     # Filter to images that have annotations
-    image_ids = list(self.coco.imgToAnns.keys())
-    train_ratio = args.train_ratio
+    image_ids: List[int] = list(self.coco.imgToAnns.keys())
+    train_ratio: float = args.train_ratio
     if train_ratio < 1.0:
       num_images = int(len(image_ids) * train_ratio)
       random.shuffle(image_ids)
       image_ids = image_ids[:num_images]
-    self.image_ids = image_ids
+    self.image_ids: List[int] = image_ids
 
     # Calculate maximum annotations per image
-    num_annos = [len(anns) for anns in self.coco.imgToAnns.values()]
-    self.max_anns = min(max(num_annos), 20)
+    num_annos: List[int] = [len(anns) for anns in self.coco.imgToAnns.values()]
+    self.max_anns: int = min(max(num_annos), 20)
 
-    self.args = args
+    self.args: argparse.Namespace = args
 
     # Ceph distributed storage configuration
-    self.ceph_root = args.train_ceph_root
-    self.use_ceph = self.ceph_root != ""
+    self.ceph_root: str = args.train_ceph_root
+    self.use_ceph: bool = self.ceph_root != ""
     self.file_client = None
 
     # Create category ID to label mapping
-    cat_ids = sorted([cat["id"] for cat in self.coco.cats.values()])
-    self.cat_id2label = {cat_id: label for label, cat_id in enumerate(cat_ids)}
+    cat_ids: List[int] = sorted([cat["id"] for cat in self.coco.cats.values()])
+    self.cat_id2label: Dict[int, int] = {cat_id: label for label, cat_id in enumerate(cat_ids)}
 
   def __len__(self) -> int:
     return len(self.image_ids)
@@ -721,21 +724,21 @@ class COCORegionCLIPDataset(Dataset):
     Read image from either local filesystem or Ceph storage.
 
     Args:
-        image_name: Name/path of the image file
+      image_name (str): Name/path of the image file
 
     Returns:
-        PIL Image object
+      PIL Image object
     """
     if self.use_ceph:
-      image_path = os.path.join(self.ceph_root, image_name)
+      image_path: str = os.path.join(self.ceph_root, image_name)
       if self.file_client is None:
         self.file_client = Client()
       img_bytes = self.file_client.get(image_path)
       buff = io.BytesIO(img_bytes)
-      image = Image.open(buff)
+      image: ImageFile = Image.open(buff)
     else:
-      image_path = os.path.join(self.image_root, image_name)
-      image = Image.open(image_path)
+      image_path: str = os.path.join(self.image_root, image_name)
+      image: ImageFile = Image.open(image_path)
     return image
 
   def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -743,36 +746,36 @@ class COCORegionCLIPDataset(Dataset):
     Get a training sample by index.
 
     Args:
-        idx: Sample index
+      idx (int): Sample index
 
     Returns:
-        Tuple of (image, boxes_template)
+      Tuple of (image, boxes_template)
     """
-    image_id = self.image_ids[idx]
+    image_id: int = self.image_ids[idx]
     image_info = self.coco.imgs[image_id]
-    image_name = image_info["file_name"]
+    image_name: str = image_info["file_name"]
 
     # Load and transform image
-    old_image = self.read_image(image_name)
-    new_image = self.transforms[0](old_image)
+    old_image: Image.Image = self.read_image(image_name)
+    new_image: torch.Tensor = self.transforms[0](old_image)
 
     # Calculate scaling factor and process annotations
     scale = get_scale(old_image, new_image)
     anns = self.coco.imgToAnns[image_id]
 
     # Initialize output tensor: [x1, y1, x2, y2, class_label, valid]
-    boxes_template = torch.zeros(self.max_anns, 4 + 2)
+    boxes_template: torch.Tensor = torch.zeros(self.max_anns, 4 + 2)
 
     for i, ann in enumerate(anns):
       if i == self.max_anns:
         break
 
-      cat_id = ann["category_id"]
+      cat_id: int = ann["category_id"]
       x, y, w, h = ann["bbox"]  # COCO format: [x, y, width, height]
-      cls_label = self.cat_id2label[cat_id]
+      cls_label: int = self.cat_id2label[cat_id]
 
       # Store box info: [x1, y1, x2, y2, class_label, valid]
-      box_info = torch.tensor([x, y, x + w, y + h, cls_label, 1.0])
+      box_info: torch.Tensor = torch.tensor([x, y, x + w, y + h, cls_label, 1.0])
       boxes_template[i] = box_info
 
     # Normalize box coordinates to [0, 1] range
@@ -785,22 +788,22 @@ class COCORegionCLIPDataset(Dataset):
 
 
 def get_coco_panoptic_dataset(
-  args: Any, preprocess_fn: Any, is_train: bool, epoch: int = 0, tokenizer: Any = None
+  args: argparse.Namespace, preprocess_fn: List[Any], is_train: bool, epoch: int = 0, tokenizer: Any = None
 ) -> "DataInfo":
   """
   Create COCO panoptic dataset with DataLoader.
 
   Args:
-      args: Training arguments
-      preprocess_fn: Image preprocessing functions
-      is_train: Whether this is training data
-      epoch: Current epoch (for distributed sampling)
-      tokenizer: Text tokenizer (optional)
+    args (argparse.Namespace): Training arguments
+    preprocess_fn (List[Any]): Image preprocessing functions
+    is_train (bool): Whether this is training data
+    epoch (int, optional): Current epoch (for distributed sampling)
+    tokenizer (Any, optional): Text tokenizer
 
   Returns:
-      DataInfo object containing dataloader and sampler
+    DataInfo object containing dataloader and sampler
   """
-  input_filename = args.train_data if is_train else args.val_data
+  input_filename: str = args.train_data if is_train else args.val_data
   assert input_filename
 
   dataset = COCOPanopticDataset(
@@ -815,18 +818,20 @@ def get_coco_panoptic_dataset(
     max_size=args.max_size,
     downsample_factor=args.downsample_factor,
   )
-  num_samples = len(dataset)
+  num_samples: int = len(dataset)
 
   # Configure distributed sampling
-  sampler = DistributedSampler(dataset) if args.distributed else None
-  shuffle = is_train and sampler is None
+  sampler: DistributedSampler[Tuple[torch.Tensor, ...]] | None = (
+    DistributedSampler(dataset) if args.distributed else None
+  )
+  shuffle: bool = is_train and sampler is None
 
   if is_train:
-    batch_size = args.batch_size
+    batch_size: int = args.batch_size
   else:
-    batch_size = min(args.batch_size, 1)  # Only support batch_size=1 for inference
+    batch_size: int = min(args.batch_size, 1)  # Only support batch_size=1 for inference
 
-  dataloader = DataLoader(
+  dataloader: DataLoader[Tuple[torch.Tensor, ...]] = DataLoader(
     dataset,
     batch_size=batch_size,
     shuffle=shuffle,
@@ -842,23 +847,23 @@ def get_coco_panoptic_dataset(
 
 
 def get_proposal_distill_dataset(
-  args: Any, preprocess_fn: Any, is_train: bool, epoch: int = 0, tokenizer: Any = None
+  args: argparse.Namespace, preprocess_fn: List[Any], is_train: bool, epoch: int = 0, tokenizer: Any = None
 ) -> "DataInfo":
   """
   Create proposal distillation dataset with DataLoader.
 
   Args:
-      args: Training arguments
-      preprocess_fn: Image preprocessing functions
-      is_train: Whether this is training data
-      epoch: Current epoch (for distributed sampling)
-      tokenizer: Text tokenizer (optional)
+    args (argparse.Namespace): Training arguments
+    preprocess_fn (List[Any]): Image preprocessing functions
+    is_train (bool): Whether this is training data
+    epoch (int, optional): Current epoch (for distributed sampling)
+    tokenizer (Any, optional): Text tokenizer
 
   Returns:
-      DataInfo object containing dataloader and sampler
+    DataInfo object containing dataloader and sampler
   """
   assert is_train  # Only used for training
-  input_filename = args.train_data
+  input_filename: str = args.train_data
   assert input_filename
 
   dataset = ProposalDistillDataset(
@@ -869,14 +874,16 @@ def get_proposal_distill_dataset(
     crop_size=args.input_size,
     args=args,
   )
-  num_samples = len(dataset)
+  num_samples: int = len(dataset)
 
   # Configure distributed sampling
-  sampler = DistributedSampler(dataset) if args.distributed else None
-  shuffle = is_train and sampler is None
-  batch_size = args.batch_size
+  sampler: DistributedSampler[Tuple[torch.Tensor, ...]] | None = (
+    DistributedSampler(dataset) if args.distributed else None
+  )
+  shuffle: bool = is_train and sampler is None
+  batch_size: int = args.batch_size
 
-  dataloader = DataLoader(
+  dataloader: DataLoader[Tuple[torch.Tensor, ...]] = DataLoader(
     dataset,
     batch_size=batch_size,
     shuffle=shuffle,
@@ -892,23 +899,23 @@ def get_proposal_distill_dataset(
 
 
 def get_grid_distill_dataset(
-  args: Any, preprocess_fn: Any, is_train: bool, epoch: int = 0, tokenizer: Any = None
+  args: argparse.Namespace, preprocess_fn: List[Any], is_train: bool, epoch: int = 0, tokenizer: Any = None
 ) -> "DataInfo":
   """
   Create grid distillation dataset with DataLoader.
 
   Args:
-      args: Training arguments
-      preprocess_fn: Image preprocessing functions
-      is_train: Whether this is training data
-      epoch: Current epoch (for distributed sampling)
-      tokenizer: Text tokenizer (optional)
+    args (argparse.Namespace): Training arguments
+    preprocess_fn (List[Any]): Image preprocessing functions
+    is_train (bool): Whether this is training data
+    epoch (int, optional): Current epoch (for distributed sampling)
+    tokenizer (Any, optional): Text tokenizer
 
   Returns:
-      DataInfo object containing dataloader and sampler
+    DataInfo object containing dataloader and sampler
   """
   assert is_train  # Only used for training
-  input_filename = args.train_data
+  input_filename: str = args.train_data
   assert input_filename
 
   dataset = GridDistillDataset(
@@ -921,14 +928,16 @@ def get_grid_distill_dataset(
     pre_transforms=args.pre_transforms,
     args=args,
   )
-  num_samples = len(dataset)
+  num_samples: int = len(dataset)
 
   # Configure distributed sampling
-  sampler = DistributedSampler(dataset) if args.distributed else None
-  shuffle = is_train and sampler is None
-  batch_size = args.batch_size
+  sampler: DistributedSampler[Tuple[torch.Tensor, ...]] | None = (
+    DistributedSampler(dataset) if args.distributed else None
+  )
+  shuffle: bool = is_train and sampler is None
+  batch_size: int = args.batch_size
 
-  dataloader = DataLoader(
+  dataloader: DataLoader[Tuple[torch.Tensor, ...]] = DataLoader(
     dataset,
     batch_size=batch_size,
     shuffle=shuffle,
@@ -944,23 +953,23 @@ def get_grid_distill_dataset(
 
 
 def get_region_clip_dataset(
-  args: Any, preprocess_fn: Any, is_train: bool, epoch: int = 0, tokenizer: Any = None
+  args: argparse.Namespace, preprocess_fn: List[Any], is_train: bool, epoch: int = 0, tokenizer: Any = None
 ) -> "DataInfo":
   """
   Create region CLIP dataset with DataLoader.
 
   Args:
-      args: Training arguments
-      preprocess_fn: Image preprocessing functions
-      is_train: Whether this is training data
-      epoch: Current epoch (for distributed sampling)
-      tokenizer: Text tokenizer (optional)
+    args (argparse.Namespace): Training arguments
+    preprocess_fn (List[Any]): Image preprocessing functions
+    is_train (bool): Whether this is training data
+    epoch (int, optional): Current epoch (for distributed sampling)
+    tokenizer (Any, optional): Text tokenizer
 
   Returns:
-      DataInfo object containing dataloader and sampler
+    DataInfo object containing dataloader and sampler
   """
   assert is_train  # Only used for training
-  input_filename = args.train_data
+  input_filename: str = args.train_data
   assert input_filename
 
   dataset = COCORegionCLIPDataset(
@@ -969,14 +978,16 @@ def get_region_clip_dataset(
     image_root=args.train_image_root,
     args=args,
   )
-  num_samples = len(dataset)
+  num_samples: int = len(dataset)
 
   # Configure distributed sampling
-  sampler = DistributedSampler(dataset) if args.distributed else None
-  shuffle = is_train and sampler is None
-  batch_size = args.batch_size
+  sampler: DistributedSampler[Tuple[torch.Tensor, ...]] | None = (
+    DistributedSampler(dataset) if args.distributed else None
+  )
+  shuffle: bool = is_train and sampler is None
+  batch_size: int = args.batch_size
 
-  dataloader = DataLoader(
+  dataloader: DataLoader[Tuple[torch.Tensor, ...]] = DataLoader(
     dataset,
     batch_size=batch_size,
     shuffle=shuffle,
@@ -1017,13 +1028,13 @@ class DataInfo:
   Container for dataset information including dataloader and sampler.
 
   Args:
-      dataloader: PyTorch DataLoader instance
-      sampler: Distributed sampler (optional)
-      shared_epoch: Shared epoch counter (optional)
+    dataloader (DataLoader[Tuple[torch.Tensor, ...]]): PyTorch DataLoader instance
+    sampler: Distributed sampler (optional)
+    shared_epoch: Shared epoch counter (optional)
   """
 
-  dataloader: DataLoader
-  sampler: Optional[DistributedSampler] = None
+  dataloader: DataLoader[Tuple[torch.Tensor, ...]]
+  sampler: Optional[DistributedSampler[Tuple[torch.Tensor, ...]]] = None
   shared_epoch: Optional[SharedEpoch] = None
 
   def set_epoch(self, epoch: int) -> None:
@@ -1031,7 +1042,7 @@ class DataInfo:
     Set epoch for distributed sampling.
 
     Args:
-        epoch: Current training epoch
+      epoch (int): Current training epoch
     """
     if self.shared_epoch is not None:
       self.shared_epoch.set_value(epoch)
@@ -1039,16 +1050,16 @@ class DataInfo:
       self.sampler.set_epoch(epoch)
 
 
-def get_dataset_fn(data_path: str, dataset_type: str):
+def get_dataset_fn(data_path: str, dataset_type: str) -> Callable[..., DataInfo]:
   """
   Get dataset factory function based on dataset type.
 
   Args:
-      data_path: Path to dataset (used for validation)
-      dataset_type: Type of dataset to create
+    data_path (str): Path to dataset (used for validation)
+    dataset_type (str): Type of dataset to create
 
   Returns:
-      Dataset factory function
+    Dataset factory function
 
   Raises:
       ValueError: If dataset type is not supported
@@ -1066,22 +1077,22 @@ def get_dataset_fn(data_path: str, dataset_type: str):
 
 
 def get_data(
-  args: Any, preprocess_fns: Tuple[Any, Any], epoch: int = 0, tokenizer: Any = None
+  args: argparse.Namespace, preprocess_fns: Tuple[Any, Any], epoch: int = 0, tokenizer: Any = None
 ) -> Dict[str, "DataInfo"]:
   """
   Create training and validation datasets based on configuration.
 
   Args:
-      args: Training arguments containing dataset configuration
-      preprocess_fns: Tuple of (train_preprocess, val_preprocess) functions
-      epoch: Current training epoch
-      tokenizer: Text tokenizer (optional)
+    args (argparse.Namespace): Training arguments containing dataset configuration
+    preprocess_fns (List[Any]): Tuple of (train_preprocess, val_preprocess) functions
+    epoch (int): Current training epoch
+    tokenizer (Any, optional): Text tokenizer
 
   Returns:
-      Dictionary containing 'train' and/or 'val' DataInfo objects
+    Dictionary containing 'train' and/or 'val' DataInfo objects
   """
   preprocess_train, preprocess_val = preprocess_fns
-  data = {}
+  data: Dict[str, DataInfo] = {}
 
   if args.train_data:
     data["train"] = get_dataset_fn(args.train_data, args.dataset_type)(

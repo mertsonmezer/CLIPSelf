@@ -6,4 +6,4 @@ torchrun --nproc_per_node 4 -m training.main --batch-size=2 --lr=1e-5 --wd=0.1 -
 --val-image-root data/coco/val2017  --cache-dir checkpoints/EVA02_CLIP_B_psz16_s8B.pt --log-every-n-steps 50 \
 --lock-image --save-frequency 6 --lock-image-unlocked-groups 12 --extract-type="v2" \
 --name clipself_coco_6_save6_test1_eva_vitb16_12layers --downsample-factor 16 --det-image-size 1024 \
---alpha 0.7
+--alpha 0.7 --train-ratio 0.1

@@ -293,7 +293,7 @@ def evaluate(model: Any, data: Dict[str, Any], epoch: int, args: Any) -> Dict[st
 
   Args:
     model: The model to evaluate
-    data: Dictionary containing evaluation data loaders
+    data: Dictionary containing evaluation dataloaders
     epoch: Current epoch number for logging
     args: Evaluation arguments/configuration
 
