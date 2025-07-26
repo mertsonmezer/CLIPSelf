@@ -322,8 +322,8 @@ def zero_shot_eval(model: torch.nn.Module, data: Dict[str, Any], epoch: int, arg
       data: Dictionary containing data loaders with 'val' key for validation data
       epoch: Current training epoch
       args: Configuration arguments containing:
-          - zeroshot_frequency: How often to run zero-shot evaluation
-          - epochs: Total number of training epochs
+        - zeroshot_frequency: How often to run zero-shot evaluation
+        - epochs: Total number of training epochs
 
   Returns:
       Dictionary containing evaluation results for different extraction methods

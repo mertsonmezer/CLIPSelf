@@ -1,8 +1,9 @@
 NPROC_PER_NODE=4
 
 torchrun --nproc_per_node $NPROC_PER_NODE -m training.main \
-  --name clipself_coco_6_save6_test1_biomed_vitb16_12layers \
-  --model hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224 \
+  --name clipself_coco_6_save6_test1_eva_vitb16_12layers \
+  --model EVA02-CLIP-B-16 \
+  --pretrained eva \
   --embed-path metadata/coco_panoptic_clip_hand_craft_EVACLIP_ViTB16.npy \
   --batch-size 2 \
   --epochs 6 \
@@ -23,6 +24,7 @@ torchrun --nproc_per_node $NPROC_PER_NODE -m training.main \
   --val-data data/coco/annotations/panoptic_val2017.json \
   --train-image-root data/coco/train2017 \
   --val-image-root data/coco/val2017 \
+  --cache-dir checkpoints/EVA02_CLIP_B_psz16_s8B.pt \
   --zeroshot-frequency 1 \
   --log-every-n-steps 50 \
   --save-frequency 6

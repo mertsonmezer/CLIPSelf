@@ -453,7 +453,7 @@ def create_model_from_pretrained(
     return model, preprocess
 
 
-def demo_hf_model():
+def demo():
     # Example HuggingFace model name (replace with your desired model)
     hf_model_name = "hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"
     model, preprocess_train, preprocess_val = create_model_and_transforms(
@@ -470,4 +470,4 @@ def demo_hf_model():
 
 
 if __name__ == "__main__":
-    demo_hf_model()
+    demo()
