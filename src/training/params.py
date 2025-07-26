@@ -2,7 +2,7 @@
 CLIPSelf Training Parameters
 
 This module defines all command-line arguments for training CLIPSelf models.
-Parameters are organized into logical groups for better understanding and maintenance.
+Parameters control dataset loading, model architecture, training settings, and evaluation.
 """
 
 import argparse
@@ -72,170 +72,157 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
   )
 
-  # ============================================================================
-  # DATASET CONFIGURATION
-  # ============================================================================
-  dataset_group = parser.add_argument_group(
-    "Dataset Configuration", "Settings for data loading, preprocessing, and dataset selection"
-  )
-
-  dataset_group.add_argument(
+  # Core training configuration
+  parser.add_argument(
     "--dataset-type",
     choices=["proposals_distill", "region_clip", "grid_distill"],
     default="grid_distill",
-    help="Training method: 'grid_distill' for patch-based learning, "
-    "'proposals_distill' for object-based learning, 'region_clip' for region-text alignment",
+    help="Training method: 'grid_distill' uses regular image patches for self-distillation, "
+    "'proposals_distill' uses object proposals from coco_proposals.json for region-based distillation, "
+    "'region_clip' trains RegionCLIP with region-text pairs from coco_pseudo_4764.json",
   )
 
-  dataset_group.add_argument(
+  parser.add_argument(
     "--test-type",
     choices=["coco_panoptic"],
     default="coco_panoptic",
     help="Evaluation dataset type for zero-shot testing",
   )
 
-  dataset_group.add_argument(
+  parser.add_argument(
     "--train-data",
     type=str,
     default="",
-    help="Path to training annotation file (COCO-style JSON). "
-    "Use instances_train2017.json for grid_distill, coco_proposals.json for proposals_distill",
+    help="Path to training annotation file. Use: instances_train2017.json for grid_distill, "
+    "coco_proposals.json for proposals_distill, coco_pseudo_4764.json for region_clip",
   )
 
-  dataset_group.add_argument(
+  parser.add_argument(
     "--val-data",
     type=str,
     default="data/coco/annotations/instances_val2017_100.json",
-    help="Path to validation annotation file for evaluation",
+    help="Path to validation annotation file (COCO panoptic format for evaluation)",
   )
 
-  dataset_group.add_argument(
+  parser.add_argument(
     "--train-image-root",
     type=str,
     default="data/coco/val2017",
     help="Root directory containing training images (e.g., data/coco/train2017)",
   )
 
-  dataset_group.add_argument(
+  parser.add_argument(
     "--val-image-root", type=str, default="data/coco/val2017", help="Root directory containing validation images"
   )
 
-  dataset_group.add_argument(
+  parser.add_argument(
     "--train-ceph-root",
     type=str,
     default="",
     help="Ceph distributed storage root path for training images (optional, leave empty for local storage)",
   )
 
-  dataset_group.add_argument(
+  parser.add_argument(
     "--train-ratio",
     type=float,
     default=1.0,
     help="Fraction of training data to use (0.0-1.0). Useful for quick experiments with subset of data",
   )
 
-  # ============================================================================
-  # OBJECT DETECTION & SEGMENTATION SETTINGS
-  # ============================================================================
-  detection_group = parser.add_argument_group(
-    "Object Detection & Segmentation", "Parameters for object proposals, bounding boxes, and segmentation masks"
-  )
-
-  detection_group.add_argument(
+  # Object detection and proposals
+  parser.add_argument(
     "--max-boxes",
     type=int,
     default=20,
-    help="Maximum number of object proposals/annotations per image. "
-    "Higher values capture more objects but increase memory usage",
+    help="Maximum number of object proposals/annotations per image (used as max_anns in datasets). "
+    "Controls memory usage - higher values capture more objects but require more memory",
   )
 
-  detection_group.add_argument(
+  parser.add_argument(
     "--max-masks",
     type=int,
     default=20,
-    help="Maximum number of segmentation masks per image (for panoptic segmentation)",
+    help="Maximum number of segmentation masks per image for panoptic segmentation evaluation",
   )
 
-  detection_group.add_argument(
+  parser.add_argument(
     "--min-size",
     type=int,
     default=8,
-    help="Minimum object size in pixels (width x height). Objects smaller than this are filtered out",
+    help="Minimum object size in pixels (width x height). Objects smaller than this are filtered out from proposals",
   )
 
-  detection_group.add_argument(
+  parser.add_argument(
     "--max-size",
     type=int,
     default=1024,
-    help="Maximum object size in pixels (width x height). Objects larger than this are filtered out",
+    help="Maximum object size in pixels (width x height). Objects larger than this are filtered out from proposals",
   )
 
-  detection_group.add_argument(
+  parser.add_argument(
     "--crop-scale",
     type=float,
     default=1.0,
-    help="Scale factor for expanding crop regions around objects. "
-    "1.0 = no expansion, 1.5 = expand by 50% for more context",
+    help="Scale factor for expanding crop regions around grid patches. 1.0=no expansion, 1.5=expand by 50% for more context",
   )
 
-  detection_group.add_argument(
-    "--box-scale", type=float, default=1.5, help="Scale factor for expanding bounding boxes in proposal generation"
+  parser.add_argument(
+    "--box-scale",
+    type=float,
+    default=1.5,
+    help="Scale factor for expanding bounding boxes in proposal generation (used in ProposalDistillDataset for context)",
   )
 
-  detection_group.add_argument(
-    "--mask-thr", type=float, default=0.7, help="Threshold for mask confidence scores (0.0-1.0)"
+  parser.add_argument(
+    "--mask-thr",
+    type=float,
+    default=0.7,
+    help="Threshold for mask confidence scores (0.0-1.0) in segmentation evaluation",
   )
 
-  # ============================================================================
-  # GRID DISTILLATION SETTINGS
-  # ============================================================================
-  grid_group = parser.add_argument_group(
-    "Grid Distillation", "Parameters specific to grid-based patch learning (dataset-type=grid_distill)"
-  )
-
-  grid_group.add_argument(
+  # Grid distillation specific
+  parser.add_argument(
     "--max-split",
     type=int,
     default=6,
-    help="Maximum grid size for patch generation. Creates grids from 1x1 up to max-splitxmax-split. "
+    help="Maximum grid size for patch generation in grid_distill mode. Creates grids from 1x1 up to max-split x max-split. "
     "Higher values generate more fine-grained patches but increase computation",
   )
 
-  grid_group.add_argument(
+  parser.add_argument(
     "--grid-noise",
     action="store_true",
     default=False,
-    help="Add random noise to grid coordinates for data augmentation",
+    help="Add random noise to grid coordinates for data augmentation in grid_distill mode",
   )
 
-  grid_group.add_argument(
+  parser.add_argument(
     "--shift-range",
     type=float,
     default=0.0,
-    help="Random shift range for grid coordinates (as fraction of image size)",
+    help="Random shift range for grid coordinates (as fraction of image size) in grid_distill mode",
   )
 
-  grid_group.add_argument(
-    "--scale-range", type=float, default=0.0, help="Random scale variation range for grid patches"
+  parser.add_argument(
+    "--scale-range", type=float, default=0.0, help="Random scale variation range for grid patches in grid_distill mode"
   )
 
-  # ============================================================================
-  # IMAGE PROCESSING & TRANSFORMS
-  # ============================================================================
-  image_group = parser.add_argument_group("Image Processing", "Image preprocessing, augmentation, and size settings")
-
-  image_group.add_argument(
+  # Image processing
+  parser.add_argument(
     "--det-image-size",
     type=int,
     default=1024,
-    help="Image size for object detection preprocessing. Larger sizes capture more detail but require more memory",
+    help="Image size for object detection preprocessing. Used for initial image resizing before feature extraction",
   )
 
-  image_group.add_argument(
-    "--train-image-size", type=int, default=1024, help="Base image size for training preprocessing"
+  parser.add_argument(
+    "--train-image-size",
+    type=int,
+    default=1024,
+    help="Base image size for training preprocessing (typically same as det-image-size)",
   )
 
-  image_group.add_argument(
+  parser.add_argument(
     "--force-image-size",
     type=int,
     nargs="+",
@@ -244,450 +231,442 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     "Provide one value for square images or two values for [height, width]",
   )
 
-  image_group.add_argument(
+  parser.add_argument(
     "--image-mean",
     type=float,
     nargs="+",
     default=None,
     metavar="MEAN",
-    help="Override default image normalization mean values (RGB order)",
+    help="Override default image normalization mean values (RGB order). Example: --image-mean 0.485 0.456 0.406",
   )
 
-  image_group.add_argument(
+  parser.add_argument(
     "--image-std",
     type=float,
     nargs="+",
     default=None,
     metavar="STD",
-    help="Override default image normalization standard deviation values (RGB order)",
+    help="Override default image normalization standard deviation values (RGB order). "
+    "Example: --image-std 0.229 0.224 0.225",
   )
 
-  image_group.add_argument(
+  parser.add_argument(
     "--pre-transforms",
     action="store_true",
     default=False,
-    help="Apply additional data augmentation transforms (random resize, crop, horizontal flip)",
+    help="Apply additional data augmentation transforms in GridDistillDataset: "
+    "random resize (0.5-2.0x), crop, and horizontal flip",
   )
 
-  image_group.add_argument(
-    "--multiscale", action="store_true", default=False, help="Enable multi-scale training with varying image sizes"
+  parser.add_argument(
+    "--multiscale",
+    action="store_true",
+    default=False,
+    help="Enable multi-scale training with varying image sizes. Applies random scaling to input images during training",
   )
 
-  image_group.add_argument(
+  parser.add_argument(
     "--aug-cfg",
     nargs="*",
     default={},
     action=ParseKwargs,
-    help="Additional augmentation configuration as key=value pairs",
+    help="Additional augmentation configuration as key=value pairs. Example: --aug-cfg brightness=0.1 contrast=0.1",
   )
 
-  # ============================================================================
-  # MODEL ARCHITECTURE
-  # ============================================================================
-  model_group = parser.add_argument_group(
-    "Model Architecture", "Model selection, architecture settings, and feature dimensions"
-  )
-
-  model_group.add_argument(
+  # Model architecture
+  parser.add_argument(
     "--model",
     type=str,
     default="RN50",
-    help="Vision backbone architecture. Examples: RN50, RN101, ViT-B/32, ViT-L/14, EVA02-CLIP-B-16",
+    help="Vision backbone architecture. Examples: RN50, RN101, ViT-B/32, ViT-L/14, EVA02-CLIP-B-16, EVA02-CLIP-L-14-336",
   )
 
-  model_group.add_argument(
+  parser.add_argument(
     "--pretrained",
     default="",
     type=str,
-    help="Pretrained model weights. Use 'openai' for OpenAI CLIP weights, "
-    "'eva' for EVA-CLIP weights, or path to custom checkpoint",
+    help="Pretrained model weights source. Use 'openai' for OpenAI CLIP weights, "
+    "'eva' for EVA-CLIP weights, or path to custom checkpoint file",
   )
 
-  model_group.add_argument(
+  parser.add_argument(
     "--pretrained-image",
     default=False,
     action="store_true",
-    help="Load ImageNet pretrained weights for image tower backbone (if available)",
+    help="Load ImageNet pretrained weights for image tower backbone (if available and different from CLIP weights)",
   )
 
-  model_group.add_argument(
-    "--embed-dim", type=int, default=768, help="Embedding dimension for image and text features"
+  parser.add_argument(
+    "--embed-dim",
+    type=int,
+    default=768,
+    help="Embedding dimension for image and text features. Must match the model architecture",
   )
 
-  model_group.add_argument(
+  parser.add_argument(
     "--extract-type",
     type=str,
     choices=["v1", "v2"],
     default="v2",
-    help="Feature extraction method version. v2 is recommended for better performance",
+    help="Feature extraction method version used in encode_pseudo_boxes. v2 is recommended for better performance",
   )
 
-  model_group.add_argument(
+  parser.add_argument(
     "--force-quick-gelu",
     default=False,
     action="store_true",
-    help="Force use of QuickGELU activation for non-OpenAI transformer models",
+    help="Force use of QuickGELU activation instead of standard GELU for non-OpenAI transformer models",
   )
 
-  model_group.add_argument(
+  parser.add_argument(
     "--force-custom-text",
     default=False,
     action="store_true",
-    help="Force use of CustomTextCLIP model with separate text tower",
+    help="Force use of CustomTextCLIP model with separate text tower instead of unified CLIP model",
   )
 
-  model_group.add_argument(
+  parser.add_argument(
     "--force-patch-dropout",
     default=None,
     type=float,
-    help="Override patch dropout rate during training. "
+    help="Override patch dropout rate during training (0.0-1.0). "
     "Useful for fine-tuning with reduced dropout near the end of training",
   )
 
-  # ============================================================================
-  # MODEL FREEZING & FINE-TUNING
-  # ============================================================================
-  freeze_group = parser.add_argument_group(
-    "Model Freezing & Fine-tuning", "Control which parts of the model are trainable"
-  )
-
-  freeze_group.add_argument(
+  # Model freezing and fine-tuning
+  parser.add_argument(
     "--lock-image",
     default=False,
     action="store_true",
-    help="Freeze the image tower by disabling gradients. Useful for fine-tuning only specific components",
+    help="Freeze most of the image tower by disabling gradients. Used with lock-image-unlocked-groups to fine-tune only top layers",
   )
 
-  freeze_group.add_argument(
+  parser.add_argument(
     "--lock-image-unlocked-groups",
     type=int,
     default=3,
     help="Number of image tower layer groups to keep unfrozen when --lock-image is used. "
-    "Allows fine-tuning of top layers while freezing lower layers",
+    "For ViT-B/16: 12 layers total, for ViT-L/14: 24 layers total",
   )
 
-  freeze_group.add_argument(
+  parser.add_argument(
     "--lock-image-freeze-bn-stats",
     default=True,
     action="store_true",
     help="Freeze BatchNorm running statistics in locked image tower layers",
   )
 
-  # ============================================================================
-  # TRAINING HYPERPARAMETERS
-  # ============================================================================
-  training_group = parser.add_argument_group(
-    "Training Hyperparameters", "Learning rate, optimization, and training schedule settings"
+  # Training hyperparameters
+  parser.add_argument("--epochs", type=int, default=32, help="Number of training epochs")
+
+  parser.add_argument(
+    "--batch-size", type=int, default=64, help="Batch size per GPU. Total effective batch size = batch_size × num_gpus"
   )
 
-  training_group.add_argument("--epochs", type=int, default=32, help="Number of training epochs")
-
-  training_group.add_argument(
-    "--batch-size", type=int, default=64, help="Batch size per GPU. Total batch size = batch_size × num_gpus"
+  parser.add_argument(
+    "--lr", type=float, default=1e-5, help="Learning rate. Will be scaled by lr-scaling method in distributed training"
   )
 
-  training_group.add_argument(
-    "--lr",
+  parser.add_argument(
+    "--beta1",
     type=float,
-    default=1e-5,
-    help="Learning rate. Will be scaled by batch size and number of GPUs in distributed training",
+    default=None,
+    help="Adam optimizer beta1 parameter. If None, uses model-specific default (0.9 for both ViT and ResNet)",
   )
 
-  training_group.add_argument(
-    "--beta1", type=float, default=None, help="Adam optimizer beta1 parameter. If None, uses model-specific default"
+  parser.add_argument(
+    "--beta2",
+    type=float,
+    default=None,
+    help="Adam optimizer beta2 parameter. If None, uses model-specific default (0.98 for ViT, 0.999 for ResNet)",
   )
 
-  training_group.add_argument(
-    "--beta2", type=float, default=None, help="Adam optimizer beta2 parameter. If None, uses model-specific default"
+  parser.add_argument(
+    "--eps",
+    type=float,
+    default=None,
+    help="Adam optimizer epsilon parameter. If None, uses model-specific default (1e-6 for ViT, 1e-8 for ResNet)",
   )
 
-  training_group.add_argument(
-    "--eps", type=float, default=None, help="Adam optimizer epsilon parameter. If None, uses model-specific default"
-  )
+  parser.add_argument("--wd", type=float, default=0.2, help="Weight decay (L2 regularization) strength")
 
-  training_group.add_argument("--wd", type=float, default=0.2, help="Weight decay (L2 regularization) strength")
+  parser.add_argument("--warmup", type=int, default=10000, help="Number of warmup steps for learning rate schedule")
 
-  training_group.add_argument(
-    "--warmup", type=int, default=10000, help="Number of warmup steps for learning rate schedule"
-  )
-
-  training_group.add_argument(
+  parser.add_argument(
     "--lr-scheduler",
     type=str,
     default="cosine",
-    help="Learning rate scheduler type: 'cosine', 'const' (constant), or 'const-cooldown'",
+    help="Learning rate scheduler type: 'cosine' for cosine annealing, 'const' for constant, 'const-cooldown' for constant then cooldown",
   )
 
-  training_group.add_argument(
-    "--lr-cooldown-end", type=float, default=0.0, help="Final learning rate for cooldown schedule"
+  parser.add_argument(
+    "--lr-cooldown-end",
+    type=float,
+    default=0.0,
+    help="Final learning rate for cooldown schedule (used with const-cooldown scheduler)",
   )
 
-  training_group.add_argument(
-    "--lr-cooldown-power", type=float, default=1.0, help="Power for polynomial cooldown schedule (1.0 = linear decay)"
+  parser.add_argument(
+    "--lr-cooldown-power",
+    type=float,
+    default=1.0,
+    help="Power for polynomial cooldown schedule (1.0 = linear decay, 2.0 = quadratic)",
   )
 
-  training_group.add_argument(
+  parser.add_argument(
     "--skip-scheduler",
     action="store_true",
     default=False,
-    help="Skip learning rate decay and use constant learning rate",
+    help="Skip learning rate decay and use constant learning rate throughout training",
   )
 
-  training_group.add_argument(
+  parser.add_argument(
     "--grad-clip-norm",
     type=float,
     default=None,
-    help="Gradient clipping norm. Clips gradients if their norm exceeds this value",
+    help="Gradient clipping norm. Clips gradients if their norm exceeds this value (prevents gradient explosion)",
   )
 
-  training_group.add_argument(
-    "--accum-freq", type=int, default=1, help="Gradient accumulation frequency. Updates model every N steps"
+  parser.add_argument(
+    "--accum-freq",
+    type=int,
+    default=1,
+    help="Gradient accumulation frequency. Updates model every N steps to simulate larger batch sizes",
   )
 
-  # ============================================================================
-  # LOSS FUNCTION WEIGHTS
-  # ============================================================================
-  loss_group = parser.add_argument_group(
-    "Loss Function Configuration", "Weights for different loss components in CLIPSelf training"
+  # Loss function configuration
+  parser.add_argument(
+    "--alpha",
+    type=float,
+    default=2.0,
+    help="Alpha parameter for loss weighting in CLIPSelf. Used in scripts: 0.7 for ViT-B/16, 0.95 for ViT-L/14",
   )
 
-  loss_group.add_argument(
-    "--alpha", type=float, default=2.0, help="Alpha parameter for loss weighting. Not used when alpha >= 1.0"
+  parser.add_argument(
+    "--kl-weight", type=float, default=1.0, help="Weight for KL divergence loss component in distillation training"
   )
 
-  loss_group.add_argument("--kl-weight", type=float, default=1.0, help="Weight for KL divergence loss in distillation")
+  parser.add_argument(
+    "--contrast-weight",
+    type=float,
+    default=1.0,
+    help="Weight for contrastive loss component (used in RegionCLIP training)",
+  )
 
-  loss_group.add_argument("--contrast-weight", type=float, default=1.0, help="Weight for contrastive loss component")
+  parser.add_argument(
+    "--l1-weight", type=float, default=0.10, help="Weight for L1 regularization loss component in CLIPSelf training"
+  )
 
-  loss_group.add_argument("--l1-weight", type=float, default=0.10, help="Weight for L1 regularization loss")
+  parser.add_argument(
+    "--smooth-weight",
+    type=float,
+    default=0.0,
+    help="Weight for smoothness regularization (encourages smooth feature transitions)",
+  )
 
-  loss_group.add_argument("--smooth-weight", type=float, default=0.0, help="Weight for smoothness regularization")
+  parser.add_argument(
+    "--cosine-weight", type=float, default=1.0, help="Weight for cosine similarity loss component in CLIPSelf training"
+  )
 
-  loss_group.add_argument("--cosine-weight", type=float, default=1.0, help="Weight for cosine similarity loss")
-
-  loss_group.add_argument(
+  parser.add_argument(
     "--fix-logit-scale",
     action="store_true",
     default=False,
-    help="Fix the logit scale parameter instead of learning it",
+    help="Fix the logit scale parameter instead of learning it during training",
   )
 
-  # ============================================================================
-  # SEGMENTATION & EMBEDDINGS
-  # ============================================================================
-  segmentation_group = parser.add_argument_group(
-    "Segmentation & Text Embeddings", "Settings for panoptic segmentation and precomputed text embeddings"
-  )
-
-  segmentation_group.add_argument(
+  # Segmentation and embeddings
+  parser.add_argument(
     "--val-segm-root",
     type=str,
     default="data/coco/annotations/panoptic_val2017",
-    help="Directory containing validation segmentation masks",
+    help="Directory containing validation panoptic segmentation masks",
   )
 
-  segmentation_group.add_argument(
+  parser.add_argument(
     "--train-segm-root",
     type=str,
     default="data/coco/annotations/panoptic_val2017",
-    help="Directory containing training segmentation masks",
+    help="Directory containing training panoptic segmentation masks",
   )
 
-  segmentation_group.add_argument(
+  parser.add_argument(
     "--downsample-factor",
     type=int,
     default=16,
-    help="Downsampling factor for segmentation masks to reduce memory usage",
+    help="Downsampling factor for segmentation masks to reduce memory usage during evaluation",
   )
 
-  segmentation_group.add_argument(
+  parser.add_argument(
     "--embed-path",
     type=str,
     default="metadata/coco_clip_hand_craft_RN50.npy",
-    help="Path to precomputed text embeddings for class names (.npy file)",
+    help="Path to precomputed text embeddings for evaluation class names (.npy file). "
+    "Use metadata/coco_panoptic_clip_hand_craft_EVACLIP_ViTB16.npy for EVA-CLIP ViT-B/16",
   )
 
-  segmentation_group.add_argument(
-    "--train-embed-path", type=str, default="", help="Path to precomputed text embeddings for training (optional)"
+  parser.add_argument(
+    "--train-embed-path",
+    type=str,
+    default="",
+    help="Path to precomputed text embeddings for training class names (required for region_clip mode)",
   )
 
-  # ============================================================================
-  # COMPUTATION & MEMORY
-  # ============================================================================
-  computation_group = parser.add_argument_group(
-    "Computation & Memory", "Settings for memory usage, precision, and computational efficiency"
-  )
-
-  computation_group.add_argument(
+  # Computational settings
+  parser.add_argument(
     "--precision",
     choices=["amp", "amp_bf16", "amp_bfloat16", "bf16", "fp16", "fp32"],
     default="amp",
     help="Floating point precision: 'amp' (automatic mixed precision), 'fp16', 'bf16', or 'fp32'",
   )
 
-  computation_group.add_argument(
+  parser.add_argument(
     "--grad-checkpointing",
     default=False,
     action="store_true",
-    help="Enable gradient checkpointing to reduce memory usage at cost of computation",
+    help="Enable gradient checkpointing to reduce memory usage at cost of computation time",
   )
 
-  computation_group.add_argument(
+  parser.add_argument(
     "--torchscript",
     default=False,
     action="store_true",
-    help="Compile model with TorchScript for potential performance gains",
+    help="Compile model with TorchScript for potential performance gains (experimental)",
   )
 
-  computation_group.add_argument(
-    "--workers", type=int, default=1, help="Number of data loader worker processes per GPU"
+  parser.add_argument("--workers", type=int, default=1, help="Number of data loader worker processes per GPU")
+
+  parser.add_argument(
+    "--use-bn-sync",
+    default=False,
+    action="store_true",
+    help="Use synchronized batch normalization across GPUs in distributed training",
   )
 
-  computation_group.add_argument(
-    "--use-bn-sync", default=False, action="store_true", help="Use synchronized batch normalization across GPUs"
-  )
-
-  computation_group.add_argument(
+  parser.add_argument(
     "--gather-with-grad",
     default=False,
     action="store_true",
-    help="Enable full distributed gradient for feature gathering (increases memory usage)",
+    help="Enable full distributed gradient for feature gathering (increases memory usage but may improve convergence)",
   )
 
-  # ============================================================================
-  # DISTRIBUTED TRAINING
-  # ============================================================================
-  distributed_group = parser.add_argument_group(
-    "Distributed Training", "Multi-GPU and multi-node training configuration"
-  )
-
-  distributed_group.add_argument(
+  # Distributed training
+  parser.add_argument(
     "--dist-url",
     default="env://",
     type=str,
-    help="URL for distributed training setup. 'env://' reads from environment variables",
+    help="URL for distributed training setup. 'env://' reads from environment variables (recommended)",
   )
 
-  distributed_group.add_argument(
-    "--dist-backend", default="nccl", type=str, help="Distributed training backend: 'nccl' for GPUs, 'gloo' for CPUs"
+  parser.add_argument(
+    "--dist-backend",
+    default="nccl",
+    type=str,
+    help="Distributed training backend: 'nccl' for GPUs (recommended), 'gloo' for CPUs",
   )
 
-  distributed_group.add_argument(
+  parser.add_argument(
     "--horovod", default=False, action="store_true", help="Use Horovod instead of PyTorch native distributed training"
   )
 
-  distributed_group.add_argument(
+  parser.add_argument(
     "--ddp-static-graph",
     default=False,
     action="store_true",
-    help="Enable static graph optimization for DistributedDataParallel (PyTorch >= 1.11)",
+    help="Enable static graph optimization for DistributedDataParallel (requires PyTorch >= 1.11)",
   )
 
-  distributed_group.add_argument(
+  parser.add_argument(
     "--no-set-device-rank",
     default=False,
     action="store_true",
-    help="Don't automatically set device from local rank (useful when CUDA_VISIBLE_DEVICES is set)",
+    help="Don't automatically set device from local rank (useful when CUDA_VISIBLE_DEVICES is manually set)",
   )
 
-  # ============================================================================
-  # CHECKPOINTING & EVALUATION
-  # ============================================================================
-  checkpoint_group = parser.add_argument_group(
-    "Checkpointing & Evaluation", "Model saving, loading, and evaluation frequency settings"
-  )
-
-  checkpoint_group.add_argument(
+  # Checkpointing and evaluation
+  parser.add_argument(
     "--cache-dir",
     type=str,
     default="checkpoints",
     help="Directory to cache/store model checkpoints and pretrained weights",
   )
 
-  checkpoint_group.add_argument("--save-frequency", type=int, default=1, help="Save checkpoint every N epochs")
+  parser.add_argument("--save-frequency", type=int, default=1, help="Save checkpoint every N epochs")
 
-  checkpoint_group.add_argument(
+  parser.add_argument(
     "--save-most-recent",
     action="store_true",
     default=False,
-    help="Always save the most recent model as 'epoch_latest.pt'",
+    help="Always save the most recent model as 'epoch_latest.pt' in addition to numbered checkpoints",
   )
 
-  checkpoint_group.add_argument(
+  parser.add_argument(
     "--delete-previous-checkpoint",
     default=False,
     action="store_true",
-    help="Delete previous checkpoint when saving a new one (saves disk space)",
+    help="Delete previous checkpoint when saving a new one to save disk space",
   )
 
-  checkpoint_group.add_argument(
-    "--resume", default=None, type=str, help="Path to checkpoint file to resume training from"
+  parser.add_argument("--resume", default=None, type=str, help="Path to checkpoint file to resume training from")
+
+  parser.add_argument(
+    "--zeroshot-frequency", type=int, default=2, help="Run zero-shot evaluation on validation set every N epochs"
   )
 
-  checkpoint_group.add_argument(
-    "--zeroshot-frequency", type=int, default=2, help="Run zero-shot evaluation every N epochs"
-  )
-
-  # ============================================================================
-  # LOGGING & DEBUGGING
-  # ============================================================================
-  logging_group = parser.add_argument_group(
-    "Logging & Debugging", "Experiment tracking, logging, and debugging options"
-  )
-
-  logging_group.add_argument(
+  # Logging and debugging
+  parser.add_argument(
     "--logs", type=str, default="./logs/", help="Directory to store TensorBoard logs and training outputs"
   )
 
-  logging_group.add_argument(
-    "--name", type=str, default=None, help="Experiment name for logging. If None, uses current timestamp"
+  parser.add_argument(
+    "--name", type=str, default=None, help="Experiment name for logging directory. If None, uses timestamp"
   )
 
-  logging_group.add_argument(
+  parser.add_argument(
     "--log-local",
     action="store_true",
     default=False,
     help="Log files on local master process only (not global master in multi-node setup)",
   )
 
-  logging_group.add_argument("--log-every-n-steps", type=int, default=100, help="Log training metrics every N steps")
+  parser.add_argument("--log-every-n-steps", type=int, default=100, help="Log training metrics every N steps")
 
-  logging_group.add_argument(
-    "--debug", default=False, action="store_true", help="Enable debug mode with additional logging and checks"
+  parser.add_argument(
+    "--debug",
+    default=False,
+    action="store_true",
+    help="Enable debug mode with additional logging and validation checks",
   )
 
-  logging_group.add_argument(
+  parser.add_argument(
     "--copy-codebase",
     default=False,
     action="store_true",
-    help="Copy entire codebase to log directory for reproducibility",
+    help="Copy entire codebase to log directory for experiment reproducibility",
   )
 
-  logging_group.add_argument("--seed", type=int, default=0, help="Random seed for reproducible results")
+  parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducible results across runs")
 
-  # ============================================================================
-  # ADVANCED OPTIONS
-  # ============================================================================
-  advanced_group = parser.add_argument_group(
-    "Advanced Options", "Advanced settings for specific use cases and experiments"
-  )
-
-  advanced_group.add_argument(
+  # Advanced experimental options
+  parser.add_argument(
     "--image-ave-pool",
     action="store_true",
     default=False,
-    help="Use average pooling for image features (experimental)",
+    help="Use average pooling for image features instead of default pooling (experimental feature)",
   )
 
-  advanced_group.add_argument(
-    "--roi-teacher", action="store_true", default=False, help="Use ROI-based teacher model (experimental)"
+  parser.add_argument(
+    "--roi-teacher",
+    action="store_true",
+    default=False,
+    help="Use ROI-based teacher model for distillation (experimental feature, not commonly used)",
   )
 
-  advanced_group.add_argument(
+  parser.add_argument(
     "--del-dist-model",
     action="store_true",
     default=False,
-    help="Delete distributed model after training (saves memory)",
+    help="Delete distributed model after training to save memory (useful for large models)",
   )
 
   # Parse arguments and apply defaults
