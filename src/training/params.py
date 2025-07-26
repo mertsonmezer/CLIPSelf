@@ -15,14 +15,14 @@ def get_default_params(model_name: str) -> Dict[str, Any]:
   Get default optimizer parameters based on model architecture.
 
   Args:
-      model_name (str): Name of the model architecture
+    model_name (str): Name of the model architecture
 
   Returns:
-      Dict[str, Any]: Default learning rate, beta1, beta2, and epsilon values
+    Dict[str, Any]: Default learning rate, beta1, beta2, and epsilon values
 
   Note:
-      Parameters are based on the original CLIP paper (https://arxiv.org/pdf/2103.00020.pdf)
-      ViT models use different optimizer settings than ResNet models.
+    Parameters are based on the original CLIP paper (https://arxiv.org/pdf/2103.00020.pdf)
+    ViT models use different optimizer settings than ResNet models.
   """
   model_name = model_name.lower()
   if "vit" in model_name:
@@ -46,7 +46,7 @@ class ParseKwargs(argparse.Action):
     values: Optional[Sequence[Any]],
     option_string: Optional[str] = None,
   ) -> None:
-    kw = {}
+    kw: Dict[str, Any] = {}
     if values:
       for value in values:
         key, val = value.split("=")
@@ -62,10 +62,10 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
   Parse command-line arguments for CLIPSelf training.
 
   Args:
-      args: Command-line arguments (typically sys.argv[1:])
+    args (List[str]): Command-line arguments (typically sys.argv[1:])
 
   Returns:
-      argparse.Namespace: Parsed arguments with default values applied
+    argparse.Namespace: Parsed arguments with default values applied
   """
   parser = argparse.ArgumentParser(
     description="Train CLIPSelf models with different dataset types and configurations.",
@@ -93,14 +93,13 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     "--train-data",
     type=str,
     default="",
-    help="Path to training annotation file. Use: instances_train2017.json for grid_distill, "
-    "coco_proposals.json for proposals_distill, coco_pseudo_4764.json for region_clip",
+    help="Path to training annotation file.",
   )
 
   parser.add_argument(
     "--val-data",
     type=str,
-    default="data/coco/annotations/instances_val2017_100.json",
+    default="data/coco/annotations/panoptic_val_2017.json",
     help="Path to validation annotation file (COCO panoptic format for evaluation)",
   )
 
@@ -670,10 +669,10 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
   )
 
   # Parse arguments and apply defaults
-  parsed_args = parser.parse_args(args)
+  parsed_args: argparse.Namespace = parser.parse_args(args)
 
   # Apply model-specific default parameters if not explicitly set
-  default_params = get_default_params(parsed_args.model)
+  default_params: Dict[str, Any] = get_default_params(parsed_args.model)
   for name, val in default_params.items():
     if getattr(parsed_args, name) is None:
       setattr(parsed_args, name, val)
