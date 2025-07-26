@@ -19,20 +19,20 @@ from dataclasses import dataclass
 from multiprocessing import Value
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from PIL.ImageFile import ImageFile
 import numpy as np
 import torch
 from panopticapi import utils
 from PIL import Image
+from PIL.ImageFile import ImageFile
 from pycocotools.coco import COCO
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torchvision.transforms import Compose, RandomHorizontalFlip
 
 from open_clip.transform import ResizeLongest, get_scale
-from training.coco_api import COCOPanoptic
-from training.custom_transforms import CustomRandomCrop, CustomRandomResize
-from training.utils import mask2box
+from training.data.coco_api import COCOPanoptic
+from training.data.custom_transforms import CustomRandomCrop, CustomRandomResize
+from training.utils.utils import mask2box
 
 # Optional Ceph client for distributed storage
 try:

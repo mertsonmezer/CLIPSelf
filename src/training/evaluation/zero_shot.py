@@ -1,11 +1,13 @@
 import logging
+
 import torch
 import torch.nn.functional as F
-from training.dist_utils import all_gather
 from tqdm import tqdm
-from training.distributed import is_master
+
 from open_clip import get_cast_dtype
-from training.precision import get_autocast
+from training.utils.dist_utils import all_gather
+from training.utils.distributed import is_master
+from training.utils.precision import get_autocast
 
 
 def run(model, dataloader, args):

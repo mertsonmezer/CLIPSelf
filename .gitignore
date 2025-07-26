@@ -149,7 +149,7 @@ core.*
 
 # Allow
 !src/evaluation/misc/results_dbs/*
-data/
+/data/
 checkpoints/
 F-ViT/data
 F-ViT/work_dirs

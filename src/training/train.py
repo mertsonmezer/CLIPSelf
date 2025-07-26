@@ -15,9 +15,9 @@ from typing import Any, Dict, Optional
 import torch
 
 from open_clip import get_cast_dtype
-from training.distributed import is_master
-from training.precision import get_autocast
-from training.zero_shot import zero_shot_eval
+from training.evaluation.zero_shot import zero_shot_eval
+from training.utils.distributed import is_master
+from training.utils.precision import get_autocast
 
 
 class AverageMeter:

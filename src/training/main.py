@@ -15,7 +15,7 @@ import re
 import subprocess
 import sys
 from datetime import datetime
-from typing import List, Union, Optional, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -23,15 +23,15 @@ from torch import optim
 from torch.cuda.amp import GradScaler
 
 from open_clip import create_model, create_model_and_transforms, get_tokenizer
-from training.clipself import CLIPSelf
-from training.data import get_data
-from training.distributed import broadcast_object, init_distributed_device, is_master
-from training.file_utils import pt_load
-from training.logger import setup_logging
+from training.data.data import get_data
+from training.methods.clipself import CLIPSelf
+from training.methods.region_clip import RegionCLIP
 from training.params import parse_args
-from training.region_clip import RegionCLIP
-from training.scheduler import const_lr, const_lr_cooldown, cosine_lr
 from training.train import evaluate, student_teacher_ensemble, train_one_epoch
+from training.utils.distributed import broadcast_object, init_distributed_device, is_master
+from training.utils.file_utils import pt_load
+from training.utils.logger import setup_logging
+from training.utils.scheduler import const_lr, const_lr_cooldown, cosine_lr
 
 # Constant for the latest checkpoint filename
 LATEST_CHECKPOINT_NAME: str = "epoch_latest.pt"
