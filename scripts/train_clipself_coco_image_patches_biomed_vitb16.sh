@@ -1,9 +1,9 @@
 NPROC_PER_NODE=4
 
 torchrun --nproc_per_node $NPROC_PER_NODE -m training.main \
-  --name clipself_coco_6_save6_test1_biomed_vitb16_12layers \
+  --name clipself_coco_6_save6_test1_biomed_vitb16_12layers_2 \
   --model hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224 \
-  --embed-path metadata/coco_panoptic_clip_hand_craft_EVACLIP_ViTB16.npy \
+  --embed-path metadata/coco_panoptic_clip_hand_craft_biomed.npy \
   --batch-size 2 \
   --epochs 6 \
   --lr 1e-5 \

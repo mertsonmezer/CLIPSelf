@@ -10,7 +10,7 @@ torchrun --nproc_per_node $NPROC_PER_NODE -m training.main \
   --lr 1e-5 \
   --wd 0.1 \
   --alpha 0.7 \
-  --train-ratio 1.0 \
+  --train-ratio 0.05 \
   --downsample-factor 16 \
   --det-image-size 1024 \
   --workers 4 \
