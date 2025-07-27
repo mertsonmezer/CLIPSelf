@@ -1,4 +1,4 @@
-NPROC_PER_NODE=1
+NPROC_PER_NODE=4
 
 torchrun --nproc_per_node $NPROC_PER_NODE -m training.main \
   --name clipself_coco_6_save6_test1_eva_vitb16_12layers \
